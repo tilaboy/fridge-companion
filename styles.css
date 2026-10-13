@@ -1,0 +1,383 @@
+/* Fridge Door Companion — the fridge-door look (spec > Look and Feel).
+ * Plain CSS, no libraries, no network fonts. Everything is gradients,
+ * shadows, and system font stacks, so the app stays fully offline. */
+
+:root {
+  --surface: #eef1f4;
+  --steel-1: #fbfcfd;
+  --steel-2: #e9edf1;
+  --door-edge: #d7dde3;
+  --card: #fffdf8;
+  --card-edge: #eadfc8;
+  --ink: #33302b;
+  --ink-soft: #6f6a61;
+  --accent: #e8a33d;
+  --accent-deep: #c9832a;
+  --accent-soft: #f9e7c8;
+  --have: #3d8a5a;
+  --missing: #c0492f;
+  --radius: 14px;
+  --shadow: 0 10px 24px rgba(60, 70, 80, .14);
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-hand: "Bradley Hand", "Segoe Script", "Comic Sans MS", "Chalkboard SE", cursive;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 24px 16px 72px;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: radial-gradient(1200px 620px at 50% -10%, #ffffff 0%, var(--surface) 58%, #e4e9ee 100%);
+}
+
+.hidden { display: none !important; }
+
+.page { max-width: 960px; margin: 0 auto; }
+
+/* ---------- header ---------- */
+
+.app-header { text-align: center; margin-bottom: 22px; }
+
+.app-title {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: .2px;
+}
+
+.app-tagline {
+  margin: 4px 0 0;
+  font-family: var(--font-hand);
+  color: var(--ink-soft);
+  font-size: 17px;
+}
+
+/* ---------- buttons ---------- */
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--door-edge);
+  background: #ffffff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(60, 70, 80, .10);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+.btn:hover { transform: translateY(-1px); box-shadow: 0 5px 12px rgba(60, 70, 80, .16); }
+.btn:active { transform: translateY(0); }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  border-color: var(--accent-deep);
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-small { padding: 6px 14px; font-size: 14px; }
+
+/* ---------- first-use setup ---------- */
+
+.setup { display: flex; justify-content: center; }
+
+.setup-card {
+  width: min(560px, 100%);
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 26px 26px 22px;
+}
+
+.setup-title { margin: 0 0 6px; font-size: 23px; }
+
+.setup-subtitle { margin: 0 0 16px; color: var(--ink-soft); font-size: 15px; line-height: 1.5; }
+
+.seed-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+
+.seed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--card-edge);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+
+.seed-check { width: 18px; height: 18px; accent-color: var(--accent-deep); cursor: pointer; }
+
+.seed-name {
+  flex: 1;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 16px;
+  background: transparent;
+  color: var(--ink);
+  padding: 4px 2px;
+  border-bottom: 1px dashed transparent;
+}
+
+.seed-name:focus { border-bottom-color: var(--accent); }
+
+.add-category { display: flex; gap: 8px; margin-bottom: 14px; }
+
+.add-category input {
+  flex: 1;
+  font: inherit;
+  font-size: 15px;
+  padding: 9px 12px;
+  border: 1px dashed var(--door-edge);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.add-category input:focus { outline: none; border-color: var(--accent); }
+
+.setup-error {
+  margin: 0 0 12px;
+  color: var(--missing);
+  font-size: 14px;
+  font-family: var(--font-hand);
+  font-size: 16px;
+}
+
+/* ---------- the fridge door ---------- */
+
+.fridge-door {
+  position: relative;
+  background: linear-gradient(160deg, var(--steel-1), var(--steel-2));
+  border: 1px solid var(--door-edge);
+  border-radius: 26px;
+  box-shadow: var(--shadow), inset 0 1px 0 #ffffff;
+  padding: 26px 26px 22px;
+}
+
+/* faint vertical brush streaks — the fridge surface, no images */
+.fridge-door::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.38) 0 2px, rgba(70,80,90,.014) 2px 7px);
+  pointer-events: none;
+}
+
+.first-use-hint {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 10px 18px;
+  background: rgba(249, 231, 200, .82);
+  border-left: 3px solid var(--accent);
+  border-radius: 4px 14px 14px 4px;
+  font-family: var(--font-hand);
+  font-size: 17px;
+  color: #5a4a2a;
+  text-align: center;
+}
+
+.category-chips {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.chip {
+  background: var(--accent-soft);
+  border: 1px solid #ecd9b4;
+  color: #6a4f1d;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 999px;
+}
+
+/* ---------- the fridge ---------- */
+
+.fridge {
+  position: relative;
+  margin: 0 auto 18px;
+  max-width: 640px;
+  min-height: 180px;
+  background: linear-gradient(180deg, #ffffff, #f2f5f8);
+  border: 1px solid var(--door-edge);
+  border-radius: 18px;
+  box-shadow: inset 0 2px 12px rgba(90, 105, 120, .14);
+  padding: 36px 18px 18px;
+}
+
+.fridge-handle {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #dfe5eb, #b3bfca);
+  box-shadow: inset 0 1px 0 #ffffff;
+}
+
+.fridge.drop-target {
+  outline: 3px dashed var(--accent);
+  outline-offset: -6px;
+}
+
+.fridge-empty-note {
+  margin: 34px 0 0;
+  text-align: center;
+  color: var(--ink-soft);
+  font-family: var(--font-hand);
+  font-size: 17px;
+}
+
+.fridge-stock { display: grid; gap: 12px; }
+
+.fridge-group-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-soft);
+}
+
+.fridge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.stock-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid var(--card-edge);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 14px;
+  box-shadow: 0 2px 5px rgba(90, 80, 60, .10);
+}
+
+.stock-emoji { font-size: 16px; }
+.stock-amount { font-weight: 700; color: var(--accent-deep); }
+.stock-name { color: var(--ink-soft); }
+
+/* ---------- the ingredient tray ---------- */
+
+.tray-wrap { position: relative; }
+
+.ingredient-tray { display: grid; gap: 14px; }
+
+.tray-group-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--ink-soft);
+}
+
+.tray-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 74px;
+  padding: 8px 10px;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(90, 80, 60, .12);
+  cursor: grab;
+  font: inherit;
+  color: var(--ink);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.tile:hover { box-shadow: 0 6px 14px rgba(90, 80, 60, .18); }
+.tile:nth-child(odd) { transform: rotate(-1.3deg); }
+.tile:nth-child(even) { transform: rotate(1.1deg); }
+.tile:nth-child(odd):hover { transform: rotate(-1.3deg) translateY(-2px); }
+.tile:nth-child(even):hover { transform: rotate(1.1deg) translateY(-2px); }
+
+.tile-emoji { font-size: 24px; line-height: 1.1; }
+.tile-name { font-size: 12px; color: var(--ink-soft); }
+
+.door-controls {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* ---------- amount prompt ---------- */
+
+.prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(40, 46, 54, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.prompt {
+  width: min(360px, 100%);
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
+
+.prompt-title { margin: 0 0 14px; font-size: 20px; }
+.prompt-emoji { font-size: 24px; }
+
+.prompt-label { display: block; margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+
+.prompt-row { display: flex; align-items: center; gap: 8px; }
+
+.prompt-row input {
+  flex: 1;
+  font: inherit;
+  font-size: 18px;
+  padding: 9px 12px;
+  border: 1px solid var(--door-edge);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.prompt-row input:focus { outline: none; border-color: var(--accent); }
+
+.prompt-unit { font-size: 15px; color: var(--ink-soft); min-width: 44px; }
+
+.prompt-error {
+  margin: 10px 0 0;
+  color: var(--missing);
+  font-family: var(--font-hand);
+  font-size: 16px;
+}
+
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn, .tile { transition: none; }
+}

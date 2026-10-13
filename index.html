@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fridge Door Companion</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="app-header">
+      <h1 class="app-title">Fridge Door Companion</h1>
+      <p class="app-tagline">your kitchen, on the door</p>
+    </header>
+
+    <!-- First use: set up your kitchen (spec > Components > App shell) -->
+    <section id="setup-screen" class="setup" aria-labelledby="setup-title">
+      <div class="setup-card">
+        <h2 id="setup-title" class="setup-title">Set up your kitchen</h2>
+        <p class="setup-subtitle">Which kinds of food do you keep? Rename the suggestions, add your own &mdash; your ingredient tray will be grouped by whatever you choose.</p>
+        <ul id="seed-list" class="seed-list"></ul>
+        <form id="add-category-form" class="add-category" autocomplete="off">
+          <input id="new-category-name" type="text" maxlength="24" placeholder="Add your own category&hellip;" aria-label="New category name">
+          <button type="submit" class="btn btn-small">Add</button>
+        </form>
+        <p id="setup-error" class="setup-error hidden" role="alert"></p>
+        <button id="confirm-categories" type="button" class="btn btn-primary">That&rsquo;s my kitchen</button>
+      </div>
+    </section>
+
+    <!-- The fridge door (spec > Screens and Layout) -->
+    <main id="fridge-door" class="fridge-door hidden">
+      <p id="first-use-hint" class="first-use-hint">Drag an ingredient into the fridge &mdash; or just tap it. Press <strong>Done</strong> whenever you&rsquo;re ready.</p>
+      <nav id="category-chips" class="category-chips" aria-label="Your categories"></nav>
+      <section id="fridge" class="fridge" aria-label="Fridge">
+        <div class="fridge-handle" aria-hidden="true"></div>
+        <p id="fridge-empty-note" class="fridge-empty-note">Your fridge is empty &mdash; drag ingredients in.</p>
+        <div id="fridge-stock" class="fridge-stock"></div>
+      </section>
+      <section class="tray-wrap" aria-label="Ingredient tray">
+        <div id="ingredient-tray" class="ingredient-tray"></div>
+      </section>
+      <div class="door-controls">
+        <button id="done-button" type="button" class="btn">Done</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Amount prompt (spec > Components > Amount prompt) -->
+  <div id="amount-prompt" class="prompt-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="prompt-title">
+    <form id="amount-form" class="prompt" autocomplete="off">
+      <h2 id="prompt-title" class="prompt-title"><span id="prompt-emoji" class="prompt-emoji"></span> <span id="prompt-name"></span></h2>
+      <label class="prompt-label" for="amount-input">How much do you have?</label>
+      <div class="prompt-row">
+        <input id="amount-input" type="number" inputmode="numeric" placeholder="0">
+        <span id="prompt-unit" class="prompt-unit"></span>
+      </div>
+      <p id="prompt-error" class="prompt-error hidden" role="alert"></p>
+      <div class="prompt-actions">
+        <button type="button" id="prompt-cancel" class="btn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add to fridge</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="data/ingredients.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

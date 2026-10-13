@@ -10,7 +10,7 @@ status: approved
 
 # Build Checklist
 
-Build mode: to be chosen with the learner after plan approval
+Build mode: fast
 
 ## Slices
 
