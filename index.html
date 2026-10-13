@@ -40,6 +40,7 @@
       <section class="tray-wrap" aria-label="Ingredient tray">
         <div id="ingredient-tray" class="ingredient-tray"></div>
       </section>
+      <p id="door-note" class="door-note hidden" role="status"></p>
       <div class="door-controls">
         <button id="done-button" type="button" class="btn">Done</button>
         <button id="my-recipes-button" type="button" class="btn btn-primary">My Recipes</button>
@@ -58,6 +59,30 @@
       <p id="rec-empty" class="rec-empty hidden"></p>
     </div>
   </section>
+
+  <!-- Recipe card view (spec > Components > Recipe card view) -->
+  <section id="recipe-view" class="recipe-view hidden" role="dialog" aria-modal="true" aria-labelledby="recipe-title">
+    <article class="recipe-card">
+      <button id="recipe-close" type="button" class="btn btn-small recipe-close" aria-label="Close recipe">&times;</button>
+      <div id="recipe-dish" class="recipe-dish" aria-hidden="true"></div>
+      <h2 id="recipe-title" class="recipe-name"></h2>
+      <ul id="recipe-checklist" class="recipe-checklist"></ul>
+      <h3 class="recipe-steps-title">Steps</h3>
+      <ol id="recipe-steps" class="recipe-steps"></ol>
+      <p class="recipe-bon-appetit">Bon App&eacute;tit!</p>
+      <div class="recipe-actions">
+        <button id="cook-this" type="button" class="btn btn-primary">Cook this</button>
+        <button id="generate-list" type="button" class="btn">Generate the shopping list</button>
+      </div>
+    </article>
+  </section>
+
+  <!-- Combining animation (spec > Components > Combining animation) -->
+  <div id="combine-stage" class="combine-stage hidden" aria-hidden="true">
+    <div id="combine-fly" class="combine-fly"></div>
+    <div id="combine-dish" class="combine-dish"></div>
+    <p id="combine-line" class="combine-line"></p>
+  </div>
 
   <!-- Amount prompt (spec > Components > Amount prompt) -->
   <div id="amount-prompt" class="prompt-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="prompt-title">

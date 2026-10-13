@@ -20,6 +20,7 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 2. **Fill the fridge:** drag an ingredient into the fridge — or just tap it — and enter an amount.
 3. **Reload the page:** your kitchen is exactly as you left it.
 4. **Press My Recipes:** the app scores every built-in recipe against your stock and shows the top 2–3 that fit.
+5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Press **Cook this** — watch the ingredients combine, then see your fridge change — or **Generate the shopping list** to collect what's missing.
 
 ## For developers
 

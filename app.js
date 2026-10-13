@@ -150,6 +150,69 @@
   }
 
   /* ================================================================== *
+   * Commit actions (spec > Components > Commit actions)
+   * ================================================================== */
+
+  /* The ingredients a recipe is missing: held in less than the required
+   * amount — the same amount-level rule the engine scores with. */
+  function missingIngredients(state, recipe) {
+    return recipe.ingredients
+      .filter(function (ri) { return (state.stock[ri.ingredientId] || 0) < ri.amount; })
+      .map(function (ri) { return { ingredientId: ri.ingredientId, amount: ri.amount }; });
+  }
+
+  /* "Cook this": deduct each ingredient the user actually has — the full
+   * recipe amount when there is enough, otherwise whatever is left, never
+   * below zero. Ingredients that reach 0 drop off the fridge display
+   * (spec > Data Model), so their key is removed. Returns a new state. */
+  function cookRecipe(state, recipe) {
+    var next = cloneState(state);
+    recipe.ingredients.forEach(function (ri) {
+      var held = next.stock[ri.ingredientId] || 0;
+      if (held <= 0) return; // missing: untouched
+      var left = held - ri.amount;
+      if (left <= 0) delete next.stock[ri.ingredientId];
+      else next.stock[ri.ingredientId] = left;
+    });
+    return next;
+  }
+
+  /* "Generate the shopping list": the missing ingredients, each with the
+   * recipe's quantity. An ingredient already on the list is not duplicated
+   * (the first recipe's quantity stands). Returns a new state. */
+  function addToShoppingList(state, recipe) {
+    var next = cloneState(state);
+    var listed = {};
+    next.shoppingList.forEach(function (item) { listed[item.ingredientId] = true; });
+    missingIngredients(state, recipe).forEach(function (m) {
+      if (listed[m.ingredientId]) return;
+      listed[m.ingredientId] = true;
+      next.shoppingList.push({
+        ingredientId: m.ingredientId,
+        amount: m.amount,
+        fromRecipeId: recipe.id
+      });
+    });
+    return next;
+  }
+
+  /* What the combining animation flies: the committed ingredient tiles,
+   * resolved from the tray, converging on the dish emoji (spec >
+   * Components > Combining animation). Pure data so the harness can
+   * check it without a browser. */
+  function combineAnimationSpec(recipe, ingredientIds) {
+    var seen = {};
+    var flying = [];
+    (ingredientIds || []).forEach(function (id) {
+      if (seen[id]) return;
+      seen[id] = true;
+      var ing = getIngredient(id);
+      if (ing) flying.push(ing);
+    });
+    return { dishEmoji: recipe.dishEmoji, flying: flying };
+  }
+
+  /* ================================================================== *
    * 2. Store — browser storage
    * ================================================================== */
 
@@ -223,6 +286,8 @@
   var state = createState();
   var session = { entryMode: true, promptIngredientId: null, customCounter: 0 };
   var els = {};
+  var openPick = null;        // the recommendation currently centered
+  var doorNoteTimer = null;   // transient note on the fridge door
 
   function init() {
     els.setupScreen = document.getElementById('setup-screen');
@@ -251,6 +316,19 @@
     els.promptInput = document.getElementById('amount-input');
     els.promptError = document.getElementById('prompt-error');
     els.promptCancel = document.getElementById('prompt-cancel');
+    els.recipeView = document.getElementById('recipe-view');
+    els.recipeClose = document.getElementById('recipe-close');
+    els.recipeDish = document.getElementById('recipe-dish');
+    els.recipeTitle = document.getElementById('recipe-title');
+    els.recipeChecklist = document.getElementById('recipe-checklist');
+    els.recipeSteps = document.getElementById('recipe-steps');
+    els.cookThis = document.getElementById('cook-this');
+    els.generateList = document.getElementById('generate-list');
+    els.doorNote = document.getElementById('door-note');
+    els.combineStage = document.getElementById('combine-stage');
+    els.combineFly = document.getElementById('combine-fly');
+    els.combineDish = document.getElementById('combine-dish');
+    els.combineLine = document.getElementById('combine-line');
 
     state = loadState();
 
@@ -263,13 +341,22 @@
     });
     els.myRecipesButton.addEventListener('click', onMyRecipes);
     els.recClose.addEventListener('click', closeRecommendations);
+    els.recipeClose.addEventListener('click', closeRecipeView);
+    els.cookThis.addEventListener('click', onCookThis);
+    els.generateList.addEventListener('click', onGenerateList);
     els.promptForm.addEventListener('submit', onSubmitAmount);
     els.promptCancel.addEventListener('click', closePrompt);
     els.prompt.addEventListener('click', function (e) {
       if (e.target === els.prompt) closePrompt();
     });
+    els.recipeView.addEventListener('click', function (e) {
+      if (e.target === els.recipeView) closeRecipeView();
+    });
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closePrompt();
+      if (e.key !== 'Escape') return;
+      // Close the top-most layer first.
+      if (!els.prompt.classList.contains('hidden')) { closePrompt(); return; }
+      if (!els.recipeView.classList.contains('hidden')) closeRecipeView();
     });
     wireFridgeDrop();
 
@@ -515,7 +602,156 @@
       '<p class="rec-fit">You have ' + pick.have + '/' + pick.total +
         (pick.missing > 0 ? ' &middot; Missing: ' + pick.missing : ' &middot; all set') + '</p>' +
       '<div class="rec-dots" aria-hidden="true">' + dots + '</div>';
+    // Tapping a card brings it to center (spec > Components > Recipe card view).
+    card.setAttribute('role', 'button');
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', 'Open ' + pick.recipe.name);
+    card.addEventListener('click', function () { openRecipe(pick); });
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openRecipe(pick);
+      }
+    });
     return card;
+  }
+
+  /* ---------- recipe card view (spec > Components > Recipe card view) ---------- */
+
+  function openRecipe(pick) {
+    openPick = pick;
+    renderRecipeView(pick);
+    els.recipeView.classList.remove('hidden');
+  }
+
+  function closeRecipeView() {
+    els.recipeView.classList.add('hidden');
+    openPick = null;
+  }
+
+  function renderRecipeView(pick) {
+    var recipe = pick.recipe;
+    els.recipeDish.textContent = recipe.dishEmoji;
+    els.recipeTitle.textContent = recipe.name;
+
+    els.recipeChecklist.innerHTML = '';
+    recipe.ingredients.forEach(function (ri) {
+      var ing = getIngredient(ri.ingredientId);
+      var held = state.stock[ri.ingredientId] || 0;
+      var have = held >= ri.amount;
+      var li = document.createElement('li');
+      li.className = 'check-item ' + (have ? 'check-have' : 'check-missing');
+      li.innerHTML =
+        '<span class="check-mark" aria-hidden="true">' + (have ? '\u2713' : '\u2717') + '</span>' +
+        '<span class="check-emoji">' + (ing ? ing.emoji : '') + '</span>' +
+        '<span class="check-name">' + escapeHtml(ing ? ing.name : ri.ingredientId) + '</span>' +
+        '<span class="check-amounts">' + (have
+          ? 'you have ' + held + ' ' + escapeHtml(ing.unit)
+          : 'need ' + ri.amount + ' ' + escapeHtml(ing.unit) +
+            (held > 0 ? ' (you have ' + held + ')' : '')) + '</span>';
+      els.recipeChecklist.appendChild(li);
+    });
+
+    els.recipeSteps.innerHTML = '';
+    recipe.steps.forEach(function (step) {
+      var li = document.createElement('li');
+      li.textContent = step;
+      els.recipeSteps.appendChild(li);
+    });
+
+    // Nothing to shop for when the kitchen already covers the recipe.
+    var missing = missingIngredients(state, recipe).length;
+    els.generateList.disabled = missing === 0;
+    els.generateList.title = missing === 0 ? 'You already have everything for this one' : '';
+  }
+
+  /* ---------- commit actions (spec > Components > Commit actions) ---------- */
+
+  function heldIngredientIds(recipe) {
+    return recipe.ingredients
+      .filter(function (ri) { return (state.stock[ri.ingredientId] || 0) > 0; })
+      .map(function (ri) { return ri.ingredientId; });
+  }
+
+  function onCookThis() {
+    if (!openPick) return;
+    var recipe = openPick.recipe;
+    var spec = combineAnimationSpec(recipe, heldIngredientIds(recipe));
+    state = cookRecipe(state, recipe); // deducts only what you have
+    saveState(state);
+    closeRecipeView();
+    closeRecommendations();
+    renderAll();
+    playCombineAnimation(spec, 'Bon Appétit!');
+  }
+
+  function onGenerateList() {
+    if (!openPick) return;
+    var recipe = openPick.recipe;
+    var missing = missingIngredients(state, recipe);
+    var spec = combineAnimationSpec(recipe, missing.map(function (m) { return m.ingredientId; }));
+    state = addToShoppingList(state, recipe); // missing items, recipe quantities
+    saveState(state);
+    closeRecipeView();
+    closeRecommendations();
+    renderAll();
+    playCombineAnimation(spec, 'On your shopping list!', function () {
+      showDoorNote(missing.length + (missing.length === 1 ? ' ingredient' : ' ingredients') +
+        ' added to your shopping list.');
+    });
+  }
+
+  /* A short-lived note on the fridge door — the slice-3 feedback for a
+   * list commit, until the shopping-list card itself arrives (slice 4). */
+  function showDoorNote(text) {
+    els.doorNote.textContent = text;
+    els.doorNote.classList.remove('hidden');
+    if (doorNoteTimer) clearTimeout(doorNoteTimer);
+    doorNoteTimer = setTimeout(function () {
+      els.doorNote.classList.add('hidden');
+    }, 5000);
+  }
+
+  /* ---------- the combining animation (spec > Components > Combining animation) ---------- */
+
+  /* One CSS keyframe sequence, played once per commit: the committed
+   * ingredient tiles slide together and resolve into the dish emoji. */
+  function playCombineAnimation(spec, closingLine, onDone) {
+    els.combineFly.innerHTML = '';
+    spec.flying.forEach(function (ing, i) {
+      var tile = document.createElement('span');
+      tile.className = 'combine-tile';
+      tile.textContent = ing.emoji;
+      // Deterministic spread around the dish, so every play reads the same.
+      var angle = (i / Math.max(spec.flying.length, 1)) * Math.PI * 2 - Math.PI / 2;
+      var dist = 130 + (i % 3) * 26;
+      tile.style.setProperty('--dx', Math.round(Math.cos(angle) * dist) + 'px');
+      tile.style.setProperty('--dy', Math.round(Math.sin(angle) * dist - 30) + 'px');
+      tile.style.setProperty('--rot', ((i % 2 ? 1 : -1) * (12 + i * 7)) + 'deg');
+      tile.style.animationDelay = (i * 60) + 'ms';
+      els.combineFly.appendChild(tile);
+    });
+
+    els.combineDish.textContent = spec.dishEmoji;
+    // Restart the dish animation cleanly on repeated commits.
+    els.combineDish.style.animation = 'none';
+    void els.combineDish.offsetWidth;
+    els.combineDish.style.animation = '';
+    els.combineLine.textContent = closingLine || 'Bon Appétit!';
+
+    els.combineStage.classList.remove('hidden');
+
+    var finished = false;
+    function finish() {
+      if (finished) return;
+      finished = true;
+      els.combineStage.classList.add('hidden');
+      if (onDone) onDone();
+    }
+    els.combineDish.addEventListener('animationend', finish, { once: true });
+    // Fallback for reduced-motion (animations disabled) and any browser
+    // that never fires animationend: the sequence is ~1.2s long.
+    setTimeout(finish, 1800);
   }
 
   /* ---------- amount prompt ---------- */
@@ -571,7 +807,11 @@
     loadState: loadState,
     saveState: saveState,
     scoreRecipe: scoreRecipe,
-    recommend: recommend
+    recommend: recommend,
+    missingIngredients: missingIngredients,
+    cookRecipe: cookRecipe,
+    addToShoppingList: addToShoppingList,
+    combineAnimationSpec: combineAnimationSpec
   };
 
   if (typeof module !== 'undefined' && module.exports) {
