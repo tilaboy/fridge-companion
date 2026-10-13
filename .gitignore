@@ -1,0 +1,11 @@
+# 个人学习上下文默认不进提交（注意：不等于不经过 AI 服务商的对话）
+/devpost/learner-profile.md
+
+# harness 工作数据（含个人化的会话记忆笔记），不属于项目内容
+.workbuddy/
+.DS_Store
+
+# 本地凭据文件：忽略 .env 与 .env.*，放行无密钥的 .env.example
+.env
+.env.*
+!.env.example
