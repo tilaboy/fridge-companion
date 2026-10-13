@@ -19,10 +19,11 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 1. **First open:** confirm the suggested food categories (Produce, Dairy, Pantry, Leftovers) or add your own.
 2. **Fill the fridge:** drag an ingredient into the fridge — or just tap it — and enter an amount.
 3. **Reload the page:** your kitchen is exactly as you left it.
+4. **Press My Recipes:** the app scores every built-in recipe against your stock and shows the top 2–3 that fit.
 
 ## For developers
 
 - Plain HTML/CSS/JS — no framework, no build step, no dependencies.
-- `data/ingredients.js` — the built-in ingredient tray.
+- `data/ingredients.js` — the built-in ingredient tray; `data/recipes.js` — the built-in recipe collection.
 - `devpost/` — the planning documents (scope, PRD, spec) and the build checklist that tracks progress.
 - `verify/` — small node harnesses used to mechanically verify each build slice, e.g. `node verify/slice-1.js`.

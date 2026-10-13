@@ -42,9 +42,22 @@
       </section>
       <div class="door-controls">
         <button id="done-button" type="button" class="btn">Done</button>
+        <button id="my-recipes-button" type="button" class="btn btn-primary">My Recipes</button>
       </div>
     </main>
   </div>
+
+  <!-- Recommendations (spec > Components > Recommendation engine) -->
+  <section id="recommendations" class="recommendations hidden" aria-labelledby="rec-title">
+    <div class="rec-panel">
+      <div class="rec-head">
+        <h2 id="rec-title" class="rec-title">Tonight&rsquo;s picks</h2>
+        <button id="rec-close" type="button" class="btn btn-small" aria-label="Close recommendations">&times;</button>
+      </div>
+      <div id="rec-cards" class="rec-cards"></div>
+      <p id="rec-empty" class="rec-empty hidden"></p>
+    </div>
+  </section>
 
   <!-- Amount prompt (spec > Components > Amount prompt) -->
   <div id="amount-prompt" class="prompt-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="prompt-title">
@@ -64,6 +77,7 @@
   </div>
 
   <script src="data/ingredients.js"></script>
+  <script src="data/recipes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

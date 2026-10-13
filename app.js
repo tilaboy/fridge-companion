@@ -17,6 +17,7 @@
    * ================================================================== */
 
   var ingredients = root.FDC_INGREDIENTS || [];
+  var recipes = root.FDC_RECIPES || [];
 
   function getIngredient(id) {
     for (var i = 0; i < ingredients.length; i++) {
@@ -109,6 +110,46 @@
   }
 
   /* ================================================================== *
+   * The recommendation engine (spec > Components > Recommendation engine)
+   * ================================================================== */
+
+  /* Score one recipe against the stock: the share of its ingredients the
+   * user holds in sufficient amount. The amount-level check means needing
+   * 200 g with 100 g in stock counts as missing (spec > Data Model). */
+  function scoreRecipe(recipe, stock) {
+    var have = 0;
+    recipe.ingredients.forEach(function (ri) {
+      if ((stock[ri.ingredientId] || 0) >= ri.amount) have += 1;
+    });
+    var total = recipe.ingredients.length;
+    return {
+      recipe: recipe,
+      have: have,
+      missing: total - have,
+      total: total,
+      score: total === 0 ? 0 : have / total
+    };
+  }
+
+  /* The matching rule the spec committed to: score = have ÷ need, tie-broken
+   * by fewest missing, then simplest, then by id for a stable order. Only
+   * recipes with at least one ingredient in hand are candidates; the top
+   * 2-3 come back (prd.md > Product Decisions). */
+  function recommend(state, recipeList) {
+    var list = recipeList || recipes;
+    return list
+      .map(function (r) { return scoreRecipe(r, state.stock); })
+      .filter(function (s) { return s.have > 0; })
+      .sort(function (a, b) {
+        if (b.score !== a.score) return b.score - a.score;      // best fit first
+        if (a.missing !== b.missing) return a.missing - b.missing; // then fewest missing
+        if (a.total !== b.total) return a.total - b.total;      // then simplest
+        return a.recipe.id < b.recipe.id ? -1 : 1;              // stable order
+      })
+      .slice(0, 3);
+  }
+
+  /* ================================================================== *
    * 2. Store — browser storage
    * ================================================================== */
 
@@ -197,6 +238,11 @@
     els.fridgeStock = document.getElementById('fridge-stock');
     els.tray = document.getElementById('ingredient-tray');
     els.doneButton = document.getElementById('done-button');
+    els.myRecipesButton = document.getElementById('my-recipes-button');
+    els.recSection = document.getElementById('recommendations');
+    els.recCards = document.getElementById('rec-cards');
+    els.recEmpty = document.getElementById('rec-empty');
+    els.recClose = document.getElementById('rec-close');
     els.prompt = document.getElementById('amount-prompt');
     els.promptForm = document.getElementById('amount-form');
     els.promptEmoji = document.getElementById('prompt-emoji');
@@ -215,6 +261,8 @@
       session.entryMode = false;
       renderHint();
     });
+    els.myRecipesButton.addEventListener('click', onMyRecipes);
+    els.recClose.addEventListener('click', closeRecommendations);
     els.promptForm.addEventListener('submit', onSubmitAmount);
     els.promptCancel.addEventListener('click', closePrompt);
     els.prompt.addEventListener('click', function (e) {
@@ -423,6 +471,53 @@
     });
   }
 
+  /* ---------- recommendations (spec > Components > Recommendation engine) ---------- */
+
+  function onMyRecipes() {
+    renderRecommendations();
+    els.recSection.classList.remove('hidden');
+  }
+
+  function closeRecommendations() {
+    els.recSection.classList.add('hidden');
+  }
+
+  function renderRecommendations() {
+    els.recCards.innerHTML = '';
+    var picks = recommend(state);
+    if (picks.length === 0) {
+      // Empty state: no cards, just the friendly message (prd.md > Getting recommendations).
+      els.recCards.classList.add('hidden');
+      els.recEmpty.textContent = Object.keys(state.stock).length === 0
+        ? 'Uh-oh — your fridge is empty, please refuel.'
+        : "Unfortunately, there's nothing fitting.";
+      els.recEmpty.classList.remove('hidden');
+      return;
+    }
+    els.recEmpty.classList.add('hidden');
+    els.recCards.classList.remove('hidden');
+    picks.forEach(function (pick) { els.recCards.appendChild(makeRecCard(pick)); });
+  }
+
+  function makeRecCard(pick) {
+    var card = document.createElement('article');
+    card.className = 'rec-card';
+    card.dataset.recipeId = pick.recipe.id;
+
+    var dots = '';
+    for (var i = 0; i < pick.total; i++) {
+      dots += '<span class="dot' + (i < pick.have ? ' dot-filled' : '') + '"></span>';
+    }
+
+    card.innerHTML =
+      '<div class="rec-dish">' + pick.recipe.dishEmoji + '</div>' +
+      '<h3 class="rec-name">' + escapeHtml(pick.recipe.name) + '</h3>' +
+      '<p class="rec-fit">You have ' + pick.have + '/' + pick.total +
+        (pick.missing > 0 ? ' &middot; Missing: ' + pick.missing : ' &middot; all set') + '</p>' +
+      '<div class="rec-dots" aria-hidden="true">' + dots + '</div>';
+    return card;
+  }
+
   /* ---------- amount prompt ---------- */
 
   function openPrompt(ingredientId) {
@@ -474,7 +569,9 @@
     getIngredient: getIngredient,
     sanitizeState: sanitizeState,
     loadState: loadState,
-    saveState: saveState
+    saveState: saveState,
+    scoreRecipe: scoreRecipe,
+    recommend: recommend
   };
 
   if (typeof module !== 'undefined' && module.exports) {
