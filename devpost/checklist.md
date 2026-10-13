@@ -1,6 +1,6 @@
 ---
 doc: checklist
-status: draft
+status: approved
 ---
 
 <!-- `status` is the progress state every skill reads. Write `draft` when you first save this file,
