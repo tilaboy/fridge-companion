@@ -14,7 +14,7 @@ Build mode: fast
 
 ## Slices
 
-- [ ] **1. You set up your kitchen, fill your fridge, and it all survives a reload**
+- [x] **1. You set up your kitchen, fill your fridge, and it all survives a reload**
   Becomes usable: The app runs. On first open you confirm the seeded categories (Produce, Dairy, Pantry, Leftovers) or add your own; the fridge door appears with the built-in ingredient tray grouped by your categories; you drag or tap an ingredient, enter an amount, and it joins your stock. Reload the page — your kitchen is exactly as you left it.
   Why now: This is the entire first-use journey end to end, and it carries the evidence the spec committed to: add an ingredient → reload → still there. It retires the learner's recorded uncertainty (how an app with no backend remembers anything) on the first slice, where a surprise is cheapest. The unfamiliar mechanics — browser storage behavior, drag plus tap — are all proven here, before anything builds on them.
   PRD ref: `prd.md > The Core Journey` (steps 1-4), `prd.md > Features and Behavior > Setting up your kitchen (first use)`, `prd.md > Features and Behavior > Adding ingredients to stock`
