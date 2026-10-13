@@ -24,7 +24,7 @@ Build mode: fast
   Learner check: Open http://localhost:8000, confirm or edit the seeded categories, drag (or tap) an ingredient into the fridge, enter an amount, then reload the page — your categories and the ingredient should still be on the fridge door.
   Commit: `First-use setup, fridge door, and persistent stock`
 
-- [ ] **2. My Recipes recommends from what you actually have**
+- [x] **2. My Recipes recommends from what you actually have**
   Becomes usable: Pressing My Recipes scores every built-in recipe against your stock and shows the top 2-3 as cards with the fit line and match indicator; an empty or non-fitting kitchen shows the friendly empty-state message instead of cards.
   Why now: This is the unique kernel — recommends only from what's on hand — and it lands on slice 2, directly behind the storage proof. That placement is what makes the early hands-on checkpoint useful: the learner can shape the card look and the ranking while the commit half of the loop is still ahead.
   PRD ref: `prd.md > The Core Journey` (steps 5-6), `prd.md > Features and Behavior > Getting recommendations`
