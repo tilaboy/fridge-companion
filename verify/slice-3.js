@@ -151,17 +151,62 @@ check('the animation resolves into the dish emoji',
 check('the animation spec drops unknown ids and duplicates',
   app.combineAnimationSpec(scrambled, ['egg', 'egg', 'nope']).flying.length === 1);
 
+/* --- cooking reports what leaves the fridge, so the UI can show it --- */
+var taken = app.cookDeductions(stateOf(stockOf([['egg', 5], ['butter', 4]])), scrambled);
+function deduction(id) {
+  return taken.filter(function (d) { return d.ingredientId === id; })[0];
+}
+check('cooking reports the full deduction when there is enough (egg 5 - 3 = 2 left)',
+  !!deduction('egg') && deduction('egg').removed === 3 &&
+  deduction('egg').before === 5 && deduction('egg').after === 2,
+  JSON.stringify(taken));
+check('cooking reports a partial deduction when the fridge runs short (4 butter < 10)',
+  !!deduction('butter') && deduction('butter').removed === 4 && deduction('butter').after === 0,
+  JSON.stringify(taken));
+check('the reported removal matches what cookRecipe leaves behind',
+  JSON.stringify(app.cookRecipe(stateOf(stockOf([['egg', 5], ['butter', 4]])), scrambled).stock) ===
+  JSON.stringify({ egg: 2 }));
+check('the removal never mentions staples or missing ingredients',
+  app.cookDeductions(stateOf(stockOf([['egg', 3], ['salt', 99]])), scrambled)
+    .map(function (d) { return d.ingredientId; }).join(',') === 'egg');
+check('an empty fridge has nothing to remove',
+  app.cookDeductions(stateOf({}), scrambled).length === 0);
+check('cookDeductions does not mutate the state it is given',
+  (function () {
+    var s = stateOf(stockOf([['egg', 5]]));
+    app.cookDeductions(s, scrambled);
+    return s.stock.egg === 5;
+  })());
+
 /* --- styles.css carries the keyframes --- */
 var css = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
 check('styles.css defines the combining keyframes',
   css.indexOf('@keyframes fdc-combine-fly') !== -1 &&
   css.indexOf('@keyframes fdc-combine-dish') !== -1);
+check('styles.css defines the rising, evaporating "out of the fridge" keyframes',
+  css.indexOf('@keyframes fdc-remove-rise') !== -1 &&
+  css.indexOf('@keyframes fdc-remove-fade') !== -1);
+check('the removal float sits above the combining overlay',
+  /\.remove-float\s*\{[^}]*z-index:\s*6[5-9]/.test(css));
 
 /* --- the commit path invokes the animation exactly once per commit --- */
 var src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 var invocations = src.match(/playCombineAnimation\(/g) || [];
 check('one definition plus one call per commit button (Cook this, Generate the list)',
   invocations.length === 3, String(invocations.length));
+
+/* --- cooking reports the removal before it changes the stock, then floats it --- */
+check('the removal is read before the stock changes',
+  src.indexOf('var taken = cookDeductions(state, recipe)') !== -1 &&
+  src.indexOf('var taken = cookDeductions(state, recipe)') <
+    src.indexOf('state = cookRecipe(state, recipe); // deducts only what you have'));
+check('cooking plays the removal float',
+  src.indexOf('playRemoveFloat(taken)') !== -1);
+check('the removal float is anchored to the fridge on screen',
+  src.indexOf('playRemoveFloat') !== -1 && src.indexOf('els.fridge.getBoundingClientRect()') !== -1);
+check('the removal float is played once per cook only (definition + one cook call)',
+  (src.match(/playRemoveFloat\(/g) || []).length === 2,
+  String((src.match(/playRemoveFloat\(/g) || []).length));
 
 console.log(failures.length === 0 ? '\nALL CHECKS PASSED' : '\n' + failures.length + ' CHECK(S) FAILED');
 process.exit(failures.length === 0 ? 0 : 1);

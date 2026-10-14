@@ -241,6 +241,28 @@
     return next;
   }
 
+  /* What one "Cook this" actually takes out of the fridge: for every
+   * ingredient the kitchen holds, how much is removed and what is left.
+   * Staples are never removed; missing ingredients never appear. Pure data,
+   * so the harness can check it without a browser and the UI can show the
+   * removal as it happens. */
+  function cookDeductions(state, recipe) {
+    var out = [];
+    recipe.ingredients.forEach(function (ri) {
+      if (isStaple(ri.ingredientId)) return;
+      var held = state.stock[ri.ingredientId] || 0;
+      if (held <= 0) return; // missing: never removed
+      var removed = Math.min(held, ri.amount);
+      out.push({
+        ingredientId: ri.ingredientId,
+        removed: removed,
+        before: held,
+        after: held - removed
+      });
+    });
+    return out;
+  }
+
   /* "Generate the shopping list": the missing ingredients, each with the
    * recipe's quantity. An ingredient already on the list is not duplicated
    * (the first recipe's quantity stands). Returns a new state. */
@@ -374,6 +396,7 @@
   };
   var els = {};
   var openPick = null; // the recommendation currently centered
+  var removeFloatTimer = null; // clears the "out of the fridge" float
 
   function init() {
     els.seedList = document.getElementById('seed-list');
@@ -412,6 +435,7 @@
     els.combineFly = document.getElementById('combine-fly');
     els.combineDish = document.getElementById('combine-dish');
     els.combineLine = document.getElementById('combine-line');
+    els.removeFloat = document.getElementById('remove-float');
 
     // A first visit adopts the seeded categories and opens straight onto the
     // fridge door — no setup screen in front of the app.
@@ -807,12 +831,14 @@
     if (!openPick) return;
     var recipe = openPick.recipe;
     var spec = combineAnimationSpec(recipe, heldIngredientIds(recipe));
+    var taken = cookDeductions(state, recipe); // read before the stock changes
     state = cookRecipe(state, recipe); // deducts only what you have
     saveState(state);
     closeRecipeView();
     closeRecommendations();
     renderAll();
     playCombineAnimation(spec, 'Bon Appétit!');
+    playRemoveFloat(taken); // the amounts leaving the fridge, rising and evaporating
   }
 
   function onGenerateList() {
@@ -867,6 +893,82 @@
     // Fallback for reduced-motion (animations disabled) and any browser
     // that never fires animationend: the sequence is ~1.2s long.
     setTimeout(finish, 1800);
+  }
+
+  /* Cooking takes food out of the fridge: each amount that leaves rises off
+   * the fridge and evaporates (spec > Components > Commit actions). The
+   * float is anchored to the fridge's own screen position and held inside
+   * its column, so it reads as coming out of the storage no matter how wide
+   * the layout makes the fridge. */
+  function playRemoveFloat(deductions) {
+    clearTimeout(removeFloatTimer);
+    els.removeFloat.innerHTML = '';
+    if (!deductions || !deductions.length) {
+      els.removeFloat.classList.add('hidden');
+      return;
+    }
+
+    var rect = els.fridge.getBoundingClientRect();
+    var midX = rect.left + rect.width / 2;
+    var startY = rect.top + Math.max(44, rect.height * 0.40);
+    // The fridge is one third of the screen, so the float stays narrow: a
+    // small zig-zag that never leaves the fridge's own width.
+    var maxSpread = Math.max(0, Math.min(rect.width * 0.13, 26));
+    // Room the chip has, inside the fridge's padding.
+    var room = rect.width - 34;
+
+    var title = document.createElement('p');
+    title.className = 'remove-title';
+    title.textContent = 'Out of the fridge';
+    title.style.left = midX + 'px';
+    title.style.top = (rect.top + 6) + 'px';
+    els.removeFloat.appendChild(title);
+
+    // Unhide before building the chips: the layer is pointer-events:none,
+    // and a display:none parent measures its children as zero width — the
+    // fit check below needs real numbers.
+    els.removeFloat.classList.remove('hidden');
+
+    deductions.forEach(function (d, i) {
+      var ing = getIngredient(d.ingredientId);
+      if (!ing) return;
+
+      var chip = document.createElement('span');
+      chip.className = 'remove-chip';
+
+      var emoji = document.createElement('span');
+      emoji.className = 'remove-emoji';
+      emoji.textContent = ing.emoji;
+      chip.appendChild(emoji);
+
+      var name = document.createElement('span');
+      name.className = 'remove-name';
+      name.textContent = ing.name;
+      chip.appendChild(name);
+
+      var amount = document.createElement('span');
+      amount.className = 'remove-amount';
+      amount.textContent = '\u2212' + d.removed + ' ' + ing.unit;
+      chip.appendChild(amount);
+
+      // Deterministic zig-zag, so a stack of removals stays readable.
+      var spread = ((i % 3) - 1) * maxSpread;
+      chip.style.left = (midX + spread) + 'px';
+      chip.style.top = (startY + i * 26) + 'px';
+      chip.style.animationDelay = (i * 90) + 'ms';
+      els.removeFloat.appendChild(chip);
+
+      // A narrow fridge comes first: if the full line would spill over the
+      // fridge's edges, the emoji and the amount still carry the message.
+      if (chip.getBoundingClientRect().width > room) name.remove();
+    });
+
+    // Longest chip: its delay plus the 1250ms rise, plus a beat to settle.
+    var total = 1250 + deductions.length * 90 + 150;
+    removeFloatTimer = setTimeout(function () {
+      els.removeFloat.classList.add('hidden');
+      els.removeFloat.innerHTML = '';
+    }, total);
   }
 
   /* ---------- amount prompt ---------- */
@@ -930,6 +1032,7 @@
     recommend: recommend,
     missingIngredients: missingIngredients,
     cookRecipe: cookRecipe,
+    cookDeductions: cookDeductions,
     addToShoppingList: addToShoppingList,
     buyShoppingListItem: buyShoppingListItem,
     getRecipe: getRecipe,

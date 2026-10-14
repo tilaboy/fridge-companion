@@ -63,14 +63,14 @@ Carried forward from `prd.md > Look and Feel` and `scope.md > Inspiration & Iden
 - **Ingredient display:** the tray panel beside the fridge — one collapsible group per user category (Produce, Dairy, Pantry, Leftovers, Meat & Fish…), each group showing its ingredient count. Staples never appear here. The fridge itself shows what is in stock as chips, grouped by the same categories.
 - **Recipe cards:** 2–3 max, looking like notes or magnets — slight rotation, tape accent; dish as emoji/illustration; fit line "You have 4/5" or "Missing: 1"; a simple match indicator (e.g. a fill bar or dot row).
 - **Recipe view:** checklist with have/missing clearly marked — **green = have, red = missing**, high contrast — then the steps, closed with "Bon Appétit".
-- **Motion:** one signature animation — the chosen ingredients slide/toss together into the finished dish emoji, CSS keyframes, plays once on commit. Kept in the POC per the learner's ruling.
+- **Motion:** one signature animation — the chosen ingredients slide/toss together into the finished dish emoji, CSS keyframes, plays once on commit. Cooking also floats the amounts it removes off the fridge ("Out of the fridge"), so the deduction is visible. Kept in the POC per the learner's ruling.
 - **Tone:** rounded corners, warm colors, handwritten-ish accents, no stock photos. Empty-state copy stays playful ("Unfortunately, there's nothing fitting" / "Uh-oh — your fridge is empty, please refuel").
 - **Stack constraint:** everything above is achievable in plain CSS; the handwritten accents use a system cursive fallback stack rather than a bundled or network font, to stay offline-friendly.
 
 ## Components
 
 ### App shell and fridge door
-`index.html` + `app.js`. One screen, two columns: the fridge with **My Recipes** directly beneath it and the shopping-list card under that, beside a compact ingredient panel. My Recipes lives there deliberately — the learner works through the tray watching the fridge, so the button must not be a scroll away from what it acts on. Reads and writes all go through the store.
+`index.html` + `app.js`. One screen, two columns: the fridge with **My Recipes** directly beneath it and the shopping-list card under that, beside the ingredient panel. My Recipes lives there deliberately — the learner works through the tray watching the fridge, so the button must not be a scroll away from what it acts on. **The columns are one third fridge to two thirds tray** (learner ruling, 2026-10-14): the tray is where the picking and dragging happen, so it gets the room; the fridge stays legible as a narrow column that never scrolls away. Below 860px the tray drops under the fridge instead of squeezing it. Reads and writes all go through the store.
 PRD ref: `prd.md > Setting up your kitchen (first use)`, `prd.md > Adding ingredients to stock`.
 
 ### Ingredient tray and categories
@@ -94,7 +94,7 @@ A recommendation card brought to center: dish emoji, the have/missing ingredient
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Commit actions
-**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has, and never a staple. **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card; staples are never sent. Both rewrite the store; committing plays the combining animation.
+**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has, and never a staple — and floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card; staples are never sent. Both rewrite the store; committing plays the combining animation.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Shopping list card
@@ -103,6 +103,10 @@ PRD ref: `prd.md > The shopping list and restocking`.
 
 ### Combining animation
 One CSS keyframe sequence: the chosen ingredient tiles slide/toss together and resolve into the dish emoji. Plays once per commit.
+
+### "Out of the fridge" float
+Cooking takes food out of the fridge, and the learner should see it go rather than infer it from a shorter stock list. On **"Cook this"** the exact amounts leaving the fridge — read from the state *before* the deduction — rise off the fridge and evaporate: one small chip per ingredient ("🍛 Cooked Rice −250 g"), staggered, blurring and fading as they travel. Anchored to the fridge's own screen position and held inside its column, so it reads as leaving the storage at any layout. The chips drop the ingredient name when the fridge is too narrow to fit it (emoji and amount carry the message). Reduced-motion users get a plain fade instead of a rise. `cookDeductions()` is the pure source of the numbers, so the harness checks them without a browser.
+PRD ref: `prd.md > Cooking from a recipe`.
 PRD ref: `prd.md > Cooking from a recipe` (signature animation).
 
 ### Built-in data files

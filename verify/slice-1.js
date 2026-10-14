@@ -139,6 +139,13 @@ check('My Recipes sits under the fridge, above the shopping list',
 check('categories are edited in the tray panel instead of on a first screen',
   html.indexOf('id="categories-panel"') !== -1 && html.indexOf('id="seed-list"') !== -1);
 
+/* The tray is where the learner works, so it takes two thirds of the row
+ * and the fridge keeps one third (spec > Look and Feel). */
+var cssSrc = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+check('the tray takes two thirds of the row and the fridge one third',
+  /\.door-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*2fr\)/
+    .test(cssSrc));
+
 var appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 check('the tray is built as collapsible category groups whose open state survives a re-render',
   appSrc.indexOf("createElement('details')") !== -1 &&

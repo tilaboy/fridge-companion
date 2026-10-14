@@ -187,11 +187,15 @@ body {
 
 /* The fridge and the ingredient tray sit side by side (spec > Look and Feel):
  * the fridge holds its place in view while ingredients are picked, so the
- * drag is short and the fridge is readable in the same glance. */
+ * drag is short and the fridge is readable in the same glance.
+ *
+ * The fridge takes one third and the tray two thirds: the tray is where the
+ * learner spends their time (picking, dragging), so it gets the room, while
+ * the fridge stays legible as a narrow column that never scrolls away. */
 .door-layout {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: 20px;
 }
 
@@ -791,10 +795,77 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ---------- "out of the fridge" float (spec > Components > Commit actions) ---------- */
+
+/* Cooking takes food out of the fridge. Each amount that leaves rises off
+ * the fridge and evaporates, so the deduction is something the learner
+ * sees happen rather than something they have to infer from a shorter
+ * stock list. Sits above the combining overlay (z-index 60), anchored to
+ * the fridge's screen position. */
+.remove-float {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  pointer-events: none;
+}
+
+.remove-title {
+  position: absolute;
+  margin: 0;
+  transform: translate(-50%, 0);
+  font-family: var(--font-hand);
+  font-size: 17px;
+  color: #ffffff;
+  white-space: nowrap;
+  text-shadow: 0 2px 8px rgba(40, 46, 54, .6);
+  animation: fdc-remove-title 1250ms ease-out both;
+}
+
+@keyframes fdc-remove-title {
+  0%        { opacity: 0; transform: translate(-50%, 6px); }
+  18%, 72%  { opacity: 1; transform: translate(-50%, 0); }
+  100%      { opacity: 0; transform: translate(-50%, -14px); }
+}
+
+.remove-chip {
+  position: absolute;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid var(--card-edge);
+  border-radius: 999px;
+  box-shadow: 0 6px 16px rgba(60, 70, 80, .24);
+  font-size: 12.5px;
+  color: var(--missing);
+  white-space: nowrap;
+  transform: translate(-50%, 0);
+  animation: fdc-remove-rise 1250ms ease-out both;
+}
+
+.remove-emoji { font-size: 14px; line-height: 1; }
+.remove-name { font-weight: 600; }
+.remove-amount { font-weight: 800; }
+
+@keyframes fdc-remove-rise {
+  0%   { opacity: 0; transform: translate(-50%, 8px) scale(.9); filter: blur(0); }
+  18%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -86px) scale(1.05); filter: blur(3px); }
+}
+
+/* Reduced motion: the amounts still appear and disappear, they just don't travel. */
+@keyframes fdc-remove-fade {
+  0%        { opacity: 0; }
+  20%, 80%  { opacity: 1; }
+  100%      { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn, .tile { transition: none; }
   .combine-tile { animation: none; opacity: 0; }
   .combine-dish, .combine-line { animation: none; }
+  .remove-title, .remove-chip { animation-name: fdc-remove-fade; }
 }
 
 /* ---------- narrow screens: the tray drops under the fridge ---------- */
