@@ -115,6 +115,18 @@
     return categories;
   }
 
+  /* The app opens straight onto the fridge door, so a first visit (or cleared
+   * browser data) adopts the seeded categories instead of confirming them on
+   * a setup screen (spec > Components > Categories). Categories are edited
+   * later, in the tray panel's disclosure. A state that already has
+   * categories is returned untouched. */
+  function ensureCategories(state) {
+    if (state.categories.length > 0) return state;
+    var next = cloneState(state);
+    next.categories = confirmCategories(SEEDED_CATEGORIES);
+    return next;
+  }
+
   /* Group the built-in tray by the user's categories, in the user's own
    * order. Categories with no tray ingredients are skipped. An ingredient
    * whose category the user does not have (a category added to the built-in
@@ -162,17 +174,34 @@
     };
   }
 
-  /* The matching rule the spec committed to: score = have ÷ need, tie-broken
+  /* The length bias the learner asked for at the final review: a short recipe
+   * is far easier to complete, so without it the picks skew short. Ranking
+   * weight = fit × (1 + LENGTH_BONUS × tracked ingredients), so a
+   * three-ingredient recipe carries ×1.3 and a five-ingredient one ×1.5.
+   * `score` itself stays the honest fit ratio the cards display — only the
+   * order changes. Consequence, accepted knowingly: a nearly-complete long
+   * recipe can now outrank a complete short one. */
+  var LENGTH_BONUS = 0.1;
+
+  function lengthMultiplier(total) {
+    return 1 + LENGTH_BONUS * total;
+  }
+
+  /* The matching rule, with the length bias applied: fit × length, tie-broken
    * by fewest missing, then by id for a stable order. Only recipes with at
    * least one ingredient in hand are candidates; the top 2-3 come back
    * (prd.md > Product Decisions). */
   function recommend(state, recipeList) {
     var list = recipeList || recipes;
     return list
-      .map(function (r) { return scoreRecipe(r, state.stock); })
+      .map(function (r) {
+        var scored = scoreRecipe(r, state.stock);
+        scored.rank = scored.score * lengthMultiplier(scored.total);
+        return scored;
+      })
       .filter(function (s) { return s.have > 0; })
       .sort(function (a, b) {
-        if (b.score !== a.score) return b.score - a.score;         // best fit first
+        if (b.rank !== a.rank) return b.rank - a.rank;             // fit × length
         if (a.missing !== b.missing) return a.missing - b.missing;  // then fewest missing
         return a.recipe.id < b.recipe.id ? -1 : 1;                 // stable order
       })
@@ -338,24 +367,23 @@
    * ================================================================== */
 
   var state = createState();
-  var session = { entryMode: true, promptIngredientId: null, customCounter: 0 };
+  var session = {
+    promptIngredientId: null,
+    customCounter: 0,
+    openGroups: {} // which tray categories the learner has opened
+  };
   var els = {};
   var openPick = null; // the recommendation currently centered
 
   function init() {
-    els.setupScreen = document.getElementById('setup-screen');
     els.seedList = document.getElementById('seed-list');
     els.addCategoryForm = document.getElementById('add-category-form');
     els.confirmCategories = document.getElementById('confirm-categories');
-    els.setupError = document.getElementById('setup-error');
-    els.fridgeDoor = document.getElementById('fridge-door');
-    els.hint = document.getElementById('first-use-hint');
-    els.chips = document.getElementById('category-chips');
+    els.categoryError = document.getElementById('category-error');
     els.fridge = document.getElementById('fridge');
     els.fridgeEmptyNote = document.getElementById('fridge-empty-note');
     els.fridgeStock = document.getElementById('fridge-stock');
     els.tray = document.getElementById('ingredient-tray');
-    els.doneButton = document.getElementById('done-button');
     els.myRecipesButton = document.getElementById('my-recipes-button');
     els.recSection = document.getElementById('recommendations');
     els.recCards = document.getElementById('rec-cards');
@@ -385,15 +413,14 @@
     els.combineDish = document.getElementById('combine-dish');
     els.combineLine = document.getElementById('combine-line');
 
-    state = loadState();
+    // A first visit adopts the seeded categories and opens straight onto the
+    // fridge door — no setup screen in front of the app.
+    state = ensureCategories(loadState());
+    saveState(state);
 
     renderSeedList();
     els.addCategoryForm.addEventListener('submit', onAddCategory);
     els.confirmCategories.addEventListener('click', onConfirmCategories);
-    els.doneButton.addEventListener('click', function () {
-      session.entryMode = false;
-      renderHint();
-    });
     els.myRecipesButton.addEventListener('click', onMyRecipes);
     els.recClose.addEventListener('click', closeRecommendations);
     els.recipeClose.addEventListener('click', closeRecipeView);
@@ -415,7 +442,6 @@
     });
     wireFridgeDrop();
 
-    if (state.categories.length > 0) showFridgeDoor();
     renderAll();
   }
 
@@ -427,23 +453,23 @@
     });
   }
 
-  function showSetup() {
-    els.setupScreen.classList.remove('hidden');
-    els.fridgeDoor.classList.add('hidden');
-  }
+  /* ---------- categories (the tray panel's disclosure) ---------- */
 
-  function showFridgeDoor() {
-    els.setupScreen.classList.add('hidden');
-    els.fridgeDoor.classList.remove('hidden');
-    session.entryMode = true;
-  }
-
-  /* ---------- first-use setup ---------- */
-
+  /* Every seeded category is offered — checked when it is in use, and showing
+   * the learner's own name when they have renamed it — plus any custom
+   * categories already saved. */
   function renderSeedList() {
     els.seedList.innerHTML = '';
+    var inUse = {};
+    state.categories.forEach(function (c) { inUse[c.id] = c.name; });
+    var seeded = {};
     SEEDED_CATEGORIES.forEach(function (c) {
-      els.seedList.appendChild(makeSeedRow(c.id, c.name, true));
+      seeded[c.id] = true;
+      var used = Object.prototype.hasOwnProperty.call(inUse, c.id);
+      els.seedList.appendChild(makeSeedRow(c.id, used ? inUse[c.id] : c.name, used));
+    });
+    state.categories.forEach(function (c) {
+      if (!seeded[c.id]) els.seedList.appendChild(makeSeedRow(c.id, c.name, true));
     });
   }
 
@@ -493,35 +519,23 @@
   function onConfirmCategories() {
     var chosen = readChosenCategories();
     if (chosen.length === 0) {
-      els.setupError.textContent = 'Pick at least one category to continue.';
-      els.setupError.classList.remove('hidden');
+      els.categoryError.textContent = 'Keep at least one category.';
+      els.categoryError.classList.remove('hidden');
       return;
     }
-    els.setupError.classList.add('hidden');
+    els.categoryError.classList.add('hidden');
     state.categories = confirmCategories(chosen);
     saveState(state);
-    showFridgeDoor();
+    renderSeedList();
     renderAll();
   }
 
   /* ---------- the fridge door ---------- */
 
   function renderAll() {
-    renderCategoryChips();
     renderFridge();
     renderShoppingList();
     renderTray();
-    renderHint();
-  }
-
-  function renderCategoryChips() {
-    els.chips.innerHTML = '';
-    state.categories.forEach(function (c) {
-      var chip = document.createElement('span');
-      chip.className = 'chip';
-      chip.textContent = c.name;
-      els.chips.appendChild(chip);
-    });
   }
 
   function renderFridge() {
@@ -590,6 +604,10 @@
     renderAll();
   }
 
+  /* One collapsible group per category, all closed to start with so the
+   * fridge stays the focus. Which groups are open is remembered across
+   * re-renders, so adding an ingredient never closes the group you are
+   * working in (spec > Components > Ingredient tray). */
   function renderTray() {
     els.tray.innerHTML = '';
     groupTrayByCategory(state.categories).forEach(function (g) {
@@ -597,19 +615,27 @@
       var items = g.items.filter(function (ing) { return !isStaple(ing.id); });
       if (items.length === 0) return;
 
-      var section = document.createElement('section');
-      section.className = 'tray-group';
+      var group = document.createElement('details');
+      group.className = 'tray-group';
+      group.dataset.categoryId = g.category.id;
+      group.open = !!session.openGroups[g.category.id];
+      group.addEventListener('toggle', function () {
+        session.openGroups[g.category.id] = group.open;
+      });
 
-      var h = document.createElement('h3');
-      h.className = 'tray-group-title';
-      h.textContent = g.category.name;
-      section.appendChild(h);
+      var head = document.createElement('summary');
+      head.className = 'tray-group-head';
+      head.innerHTML =
+        '<span class="tray-chevron" aria-hidden="true"></span>' +
+        '<span class="tray-group-name">' + escapeHtml(g.category.name) + '</span>' +
+        '<span class="tray-group-count">' + items.length + '</span>';
+      group.appendChild(head);
 
       var row = document.createElement('div');
       row.className = 'tray-row';
       items.forEach(function (ing) { row.appendChild(makeTile(ing)); });
-      section.appendChild(row);
-      els.tray.appendChild(section);
+      group.appendChild(row);
+      els.tray.appendChild(group);
     });
   }
 
@@ -629,11 +655,6 @@
       e.dataTransfer.effectAllowed = 'copy';
     });
     return tile;
-  }
-
-  function renderHint() {
-    var stockEmpty = Object.keys(state.stock).length === 0;
-    els.hint.classList.toggle('hidden', !(session.entryMode && stockEmpty));
   }
 
   function wireFridgeDrop() {
@@ -895,6 +916,7 @@
     isValidAmount: isValidAmount,
     addToStock: addToStock,
     confirmCategories: confirmCategories,
+    ensureCategories: ensureCategories,
     groupTrayByCategory: groupTrayByCategory,
     getIngredient: getIngredient,
     isStaple: isStaple,
@@ -903,6 +925,8 @@
     loadState: loadState,
     saveState: saveState,
     scoreRecipe: scoreRecipe,
+    LENGTH_BONUS: LENGTH_BONUS,
+    lengthMultiplier: lengthMultiplier,
     recommend: recommend,
     missingIngredients: missingIngredients,
     cookRecipe: cookRecipe,

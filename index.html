@@ -13,41 +13,52 @@
       <p class="app-tagline">your kitchen, on the door</p>
     </header>
 
-    <!-- First use: set up your kitchen (spec > Components > App shell) -->
-    <section id="setup-screen" class="setup" aria-labelledby="setup-title">
-      <div class="setup-card">
-        <h2 id="setup-title" class="setup-title">Set up your kitchen</h2>
-        <p class="setup-subtitle">Which kinds of food do you keep? Rename the suggestions, add your own &mdash; your ingredient tray will be grouped by whatever you choose.</p>
-        <ul id="seed-list" class="seed-list"></ul>
-        <form id="add-category-form" class="add-category" autocomplete="off">
-          <input id="new-category-name" type="text" maxlength="24" placeholder="Add your own category&hellip;" aria-label="New category name">
-          <button type="submit" class="btn btn-small">Add</button>
-        </form>
-        <p id="setup-error" class="setup-error hidden" role="alert"></p>
-        <button id="confirm-categories" type="button" class="btn btn-primary">That&rsquo;s my kitchen</button>
-      </div>
-    </section>
+    <!-- The fridge door: the app's only screen (spec > Screens and Layout).
+         The fridge sits beside the ingredient tray, and My Recipes sits
+         directly under the fridge, so adding ingredients and reading the
+         fridge never need a scroll. -->
+    <main id="fridge-door" class="fridge-door">
+      <div class="door-layout">
+        <div class="door-main">
+          <section id="fridge" class="fridge" aria-label="Fridge">
+            <div class="fridge-handle" aria-hidden="true"></div>
+            <p id="fridge-empty-note" class="fridge-empty-note">Your fridge is empty &mdash; pick a category and tap an ingredient.</p>
+            <div id="fridge-stock" class="fridge-stock"></div>
+          </section>
 
-    <!-- The fridge door (spec > Screens and Layout) -->
-    <main id="fridge-door" class="fridge-door hidden">
-      <p id="first-use-hint" class="first-use-hint">Drag an ingredient into the fridge &mdash; or just tap it. Press <strong>Done</strong> whenever you&rsquo;re ready.</p>
-      <nav id="category-chips" class="category-chips" aria-label="Your categories"></nav>
-      <section id="fridge" class="fridge" aria-label="Fridge">
-        <div class="fridge-handle" aria-hidden="true"></div>
-        <p id="fridge-empty-note" class="fridge-empty-note">Your fridge is empty &mdash; drag ingredients in.</p>
-        <div id="fridge-stock" class="fridge-stock"></div>
-      </section>
-      <section class="tray-wrap" aria-label="Ingredient tray">
-        <div id="ingredient-tray" class="ingredient-tray"></div>
-      </section>
-      <!-- Shopping list card (spec > Components > Shopping list card) -->
-      <section id="shopping-list" class="shopping-list hidden" aria-label="Shopping list">
-        <h2 class="shopping-title">Shopping list</h2>
-        <ul id="shopping-items" class="shop-items"></ul>
-      </section>
-      <div class="door-controls">
-        <button id="done-button" type="button" class="btn">Done</button>
-        <button id="my-recipes-button" type="button" class="btn btn-primary">My Recipes</button>
+          <div class="fridge-actions">
+            <button id="my-recipes-button" type="button" class="btn btn-primary btn-lg">My Recipes</button>
+          </div>
+
+          <!-- Shopping list card (spec > Components > Shopping list card) -->
+          <section id="shopping-list" class="shopping-list hidden" aria-label="Shopping list">
+            <h2 class="shopping-title">Shopping list</h2>
+            <ul id="shopping-items" class="shop-items"></ul>
+          </section>
+        </div>
+
+        <!-- The ingredient tray: one collapsible group per category
+             (spec > Components > Ingredient tray). -->
+        <aside class="tray-panel" aria-label="Ingredient tray">
+          <div class="tray-head">
+            <h2 class="tray-title">Your ingredients</h2>
+            <p class="tray-hint">Tap a category, then tap an ingredient &mdash; or drag it into the fridge.</p>
+          </div>
+          <div id="ingredient-tray" class="ingredient-tray"></div>
+
+          <!-- Categories live here now instead of on a setup screen: the app
+               opens straight onto the door (spec > Components > Categories). -->
+          <details id="categories-panel" class="categories-panel">
+            <summary class="categories-summary">Rename or add categories</summary>
+            <ul id="seed-list" class="seed-list"></ul>
+            <form id="add-category-form" class="add-category" autocomplete="off">
+              <input id="new-category-name" type="text" maxlength="24" placeholder="Add your own&hellip;" aria-label="New category name">
+              <button type="submit" class="btn btn-small">Add</button>
+            </form>
+            <p id="category-error" class="category-error hidden" role="alert"></p>
+            <button id="confirm-categories" type="button" class="btn btn-primary btn-small">Save categories</button>
+          </details>
+        </aside>
       </div>
     </main>
   </div>

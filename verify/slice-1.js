@@ -7,6 +7,9 @@
  * add an ingredient -> reload -> the ingredient is still there. */
 'use strict';
 
+var fs = require('fs');
+var path = require('path');
+
 /* A minimal localStorage stand-in. The "reload" test is simply a fresh
  * loadState() against the same storage contents. */
 function makeStorage() {
@@ -56,6 +59,17 @@ var reloaded = app.loadState();
 check('categories survive a reload',
   JSON.stringify(reloaded.categories) === JSON.stringify(seeds),
   JSON.stringify(reloaded.categories));
+
+/* --- the app opens straight onto the door: seeds are adopted, not confirmed --- */
+var adopted = app.ensureCategories(app.createState());
+check('a first visit adopts the seeded categories instead of a setup screen',
+  adopted.categories.map(function (c) { return c.id; }).join(',') ===
+  'produce,dairy,pantry,leftovers,meat',
+  adopted.categories.map(function (c) { return c.id; }).join(','));
+check('an existing kitchen keeps its own categories (renames survive)',
+  JSON.stringify(app.ensureCategories({
+    categories: [{ id: 'produce', name: 'Veg' }], stock: {}, shoppingList: []
+  }).categories) === JSON.stringify([{ id: 'produce', name: 'Veg' }]));
 
 /* --- adding ingredients (both drag and tap end at addToStock) --- */
 reloaded = app.addToStock(reloaded, 'tomato', 3);
@@ -107,6 +121,39 @@ check('staples are declared in the ingredient data',
   app.isStaple('salt') && app.isStaple('sugar') && app.isStaple('flour') && app.isStaple('milk'));
 check('ordinary ingredients are not staples',
   !app.isStaple('egg') && !app.isStaple('butter') && !app.isStaple('chicken'));
+
+/* --- the door's shape: one screen, the tray beside the fridge (spec > Look
+ *     and Feel). Layout is visual, so this reads the markup itself. --- */
+var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+check('the setup screen and the Done control are gone — the app opens on the door',
+  html.indexOf('id="setup-screen"') === -1 && html.indexOf('id="done-button"') === -1 &&
+  html.indexOf('id="first-use-hint"') === -1);
+check('the ingredient tray lives in a panel beside the fridge, not below it',
+  html.indexOf('class="door-layout"') !== -1 &&
+  html.indexOf('class="door-main"') !== -1 &&
+  html.indexOf('class="tray-panel"') !== -1 &&
+  html.indexOf('id="ingredient-tray"') !== -1);
+check('My Recipes sits under the fridge, above the shopping list',
+  html.indexOf('id="fridge"') < html.indexOf('id="my-recipes-button"') &&
+  html.indexOf('id="my-recipes-button"') < html.indexOf('id="shopping-list"'));
+check('categories are edited in the tray panel instead of on a first screen',
+  html.indexOf('id="categories-panel"') !== -1 && html.indexOf('id="seed-list"') !== -1);
+
+var appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+check('the tray is built as collapsible category groups whose open state survives a re-render',
+  appSrc.indexOf("createElement('details')") !== -1 &&
+  appSrc.indexOf("'tray-group-head'") !== -1 &&
+  appSrc.indexOf('session.openGroups') !== -1);
+
+/* Every element the app looks up must exist in the page — the guard that
+ * catches a renamed or deleted id after a layout change. */
+var wanted = [];
+var idRe = /getElementById\('([^']+)'\)/g;
+var idMatch;
+while ((idMatch = idRe.exec(appSrc)) !== null) wanted.push(idMatch[1]);
+var missingIds = wanted.filter(function (id) { return html.indexOf('id="' + id + '"') === -1; });
+check('every element the app looks up exists in the page (' + wanted.length + ' ids)',
+  missingIds.length === 0, missingIds.join(', '));
 
 /* --- bad storage falls back to first use (spec > Important Failure Modes) --- */
 storage.setItem(app.STORAGE_KEY, '{not json');

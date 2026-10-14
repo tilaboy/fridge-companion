@@ -112,10 +112,13 @@ check('the restocked kitchen survives a reload',
  * before walking the journey from first use. */
 storage.clear();
 
-/* 1. First use: confirm the seeded categories. */
-var journey = app.loadState();
-check('journey starts at first use', journey.categories.length === 0);
-journey.categories = app.confirmCategories(app.SEEDED_CATEGORIES);
+/* 1. First use: the door opens with the seeded categories already in place. */
+var firstLoad = app.loadState();
+check('a fresh browser has nothing saved yet',
+  firstLoad.categories.length === 0 && Object.keys(firstLoad.stock).length === 0);
+var journey = app.ensureCategories(firstLoad);
+check('the door opens with the seeded categories already in place',
+  journey.categories.length === 5, String(journey.categories.length));
 app.saveState(journey);
 
 /* 2. Fill the fridge: 5 eggs and 10 g butter (scrambled eggs is complete —

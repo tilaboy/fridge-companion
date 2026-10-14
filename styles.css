@@ -35,7 +35,7 @@ body {
 
 .hidden { display: none !important; }
 
-.page { max-width: 960px; margin: 0 auto; }
+.page { max-width: 1040px; margin: 0 auto; }
 
 /* ---------- header ---------- */
 
@@ -82,72 +82,84 @@ body {
 
 .btn-small { padding: 6px 14px; font-size: 14px; }
 
-/* ---------- first-use setup ---------- */
+/* My Recipes sits right under the fridge, so it reads as belonging to it. */
+.btn-lg { padding: 11px 28px; font-size: 17px; }
 
-.setup { display: flex; justify-content: center; }
+/* ---------- the categories panel ---------- */
 
-.setup-card {
-  width: min(560px, 100%);
-  background: var(--card);
-  border: 1px solid var(--card-edge);
-  border-radius: 22px;
-  box-shadow: var(--shadow);
-  padding: 26px 26px 22px;
+/* Categories are editable where they are used — inside the tray panel, in a
+ * disclosure that stays closed until you want it. The app opens straight
+ * onto the door, so this never blocks the first visit. */
+.categories-panel {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--door-edge);
 }
 
-.setup-title { margin: 0 0 6px; font-size: 23px; }
+.categories-summary {
+  font-size: 13px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  list-style: none;
+  padding: 2px 0;
+}
 
-.setup-subtitle { margin: 0 0 16px; color: var(--ink-soft); font-size: 15px; line-height: 1.5; }
+.categories-summary::-webkit-details-marker { display: none; }
+.categories-summary::marker { content: ''; }
+.categories-summary::before { content: '\25B8\00a0'; }
+.categories-panel[open] .categories-summary::before { content: '\25BE\00a0'; }
+.categories-summary:hover { color: var(--ink); }
 
-.seed-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.seed-list { list-style: none; margin: 10px 0 8px; padding: 0; display: grid; gap: 6px; }
 
 .seed-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   background: #fff;
   border: 1px solid var(--card-edge);
-  border-radius: 12px;
-  padding: 8px 12px;
+  border-radius: 10px;
+  padding: 5px 8px;
 }
 
-.seed-check { width: 18px; height: 18px; accent-color: var(--accent-deep); cursor: pointer; }
+.seed-check { width: 16px; height: 16px; accent-color: var(--accent-deep); cursor: pointer; }
 
 .seed-name {
   flex: 1;
+  min-width: 0;
   border: none;
   outline: none;
   font: inherit;
-  font-size: 16px;
+  font-size: 14px;
   background: transparent;
   color: var(--ink);
-  padding: 4px 2px;
+  padding: 3px 2px;
   border-bottom: 1px dashed transparent;
 }
 
 .seed-name:focus { border-bottom-color: var(--accent); }
 
-.add-category { display: flex; gap: 8px; margin-bottom: 14px; }
+.add-category { display: flex; gap: 6px; margin-bottom: 10px; }
 
 .add-category input {
   flex: 1;
+  min-width: 0;
   font: inherit;
-  font-size: 15px;
-  padding: 9px 12px;
+  font-size: 14px;
+  padding: 7px 10px;
   border: 1px dashed var(--door-edge);
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
   color: var(--ink);
 }
 
 .add-category input:focus { outline: none; border-color: var(--accent); }
 
-.setup-error {
-  margin: 0 0 12px;
+.category-error {
+  margin: 0 0 10px;
   color: var(--missing);
-  font-size: 14px;
   font-family: var(--font-hand);
-  font-size: 16px;
+  font-size: 15px;
 }
 
 /* ---------- the fridge door ---------- */
@@ -171,45 +183,33 @@ body {
   pointer-events: none;
 }
 
-.first-use-hint {
+/* ---------- the door layout ---------- */
+
+/* The fridge and the ingredient tray sit side by side (spec > Look and Feel):
+ * the fridge holds its place in view while ingredients are picked, so the
+ * drag is short and the fridge is readable in the same glance. */
+.door-layout {
   position: relative;
-  margin: 0 0 16px;
-  padding: 10px 18px;
-  background: rgba(249, 231, 200, .82);
-  border-left: 3px solid var(--accent);
-  border-radius: 4px 14px 14px 4px;
-  font-family: var(--font-hand);
-  font-size: 17px;
-  color: #5a4a2a;
-  text-align: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
 }
 
-.category-chips {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
-.chip {
-  background: var(--accent-soft);
-  border: 1px solid #ecd9b4;
-  color: #6a4f1d;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 5px 14px;
-  border-radius: 999px;
+/* The fridge takes the height the tray asks for, so the door reads as one
+ * panel and My Recipes stays pinned to the fridge's lower edge. */
+.door-main {
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: 14px;
 }
 
 /* ---------- the fridge ---------- */
 
 .fridge {
   position: relative;
-  margin: 0 auto 18px;
-  max-width: 640px;
-  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  min-height: 190px;
   background: linear-gradient(180deg, #ffffff, #f2f5f8);
   border: 1px solid var(--door-edge);
   border-radius: 18px;
@@ -234,8 +234,10 @@ body {
   outline-offset: -6px;
 }
 
+/* Centred in whatever height the fridge takes. */
 .fridge-empty-note {
-  margin: 34px 0 0;
+  margin: auto 0;
+  padding: 10px 0;
   text-align: center;
   color: var(--ink-soft);
   font-family: var(--font-hand);
@@ -272,19 +274,79 @@ body {
 
 /* ---------- the ingredient tray ---------- */
 
-.tray-wrap { position: relative; }
+/* A compact panel beside the fridge: one collapsed group per category, so
+ * the tray never sprawls and the ingredients you want are one click away. */
+.tray-panel {
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  background: rgba(255, 255, 255, .74);
+  border: 1px solid var(--door-edge);
+  border-radius: 18px;
+  box-shadow: 0 6px 16px rgba(60, 70, 80, .12);
+  padding: 14px;
+}
 
-.ingredient-tray { display: grid; gap: 14px; }
+.tray-title { margin: 0 0 2px; font-size: 15px; }
 
-.tray-group-title {
-  margin: 0 0 8px;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
+.tray-hint {
+  margin: 0 0 12px;
+  font-family: var(--font-hand);
+  font-size: 14px;
+  line-height: 1.35;
   color: var(--ink-soft);
 }
 
-.tray-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.ingredient-tray { display: grid; gap: 8px; }
+
+.tray-group {
+  background: #fff;
+  border: 1px solid var(--card-edge);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tray-group-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.tray-group-head::-webkit-details-marker { display: none; }
+.tray-group-head::marker { content: ''; }
+.tray-group-head:hover { background: rgba(249, 231, 200, .45); }
+
+.tray-group[open] > .tray-group-head {
+  background: rgba(249, 231, 200, .6);
+  border-bottom: 1px solid var(--card-edge);
+}
+
+.tray-chevron {
+  width: 0;
+  height: 0;
+  border-left: 5px solid var(--ink-soft);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform .15s ease;
+}
+
+.tray-group[open] .tray-chevron { transform: rotate(90deg); }
+
+.tray-group-count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.tray-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px; }
 
 .tile {
   display: flex;
@@ -312,12 +374,9 @@ body {
 .tile-emoji { font-size: 24px; line-height: 1.1; }
 .tile-name { font-size: 12px; color: var(--ink-soft); }
 
-.door-controls {
-  position: relative;
+.fridge-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
+  justify-content: center;
 }
 
 /* ---------- amount prompt ---------- */
@@ -480,8 +539,6 @@ body {
 
 .shopping-list {
   position: relative;
-  margin: 0 auto 18px;
-  max-width: 640px;
   background: var(--card);
   border: 1px solid var(--card-edge);
   border-radius: 6px 16px 16px 16px;
@@ -738,4 +795,15 @@ body {
   .btn, .tile { transition: none; }
   .combine-tile { animation: none; opacity: 0; }
   .combine-dish, .combine-line { animation: none; }
+}
+
+/* ---------- narrow screens: the tray drops under the fridge ---------- */
+
+@media (max-width: 860px) {
+  .door-layout { grid-template-columns: 1fr; }
+  .tray-panel {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }

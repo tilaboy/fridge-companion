@@ -57,7 +57,7 @@ Build mode: fast
 ## Hands-on Checkpoints
 
 - [ ] Early usable behavior explored — after slice 2 (recommendations working): the learner tries My Recipes and shapes the card look and ranking before slices 3-4 build on them
-- [x] Final kick-the-tires exploration and feedback completed — after slice 4: the learner ran the full core journey and reported two changes (meat and fish were missing entirely; tracking salt/sugar/flour/milk made recipes look incomplete). Both resolved — see Revisions.
+- [x] Final kick-the-tires exploration and feedback completed — after slice 4: the learner ran the full core journey and reported changes in two rounds — first that meat and fish were missing entirely and that tracking salt/sugar/flour/milk made recipes look incomplete; then that the setup page should merge into the door, that the tray should move beside the fridge with My Recipes next to it, and that longer recipes should be favoured in the ranking. All resolved — see Revisions.
 
 ## Final Review
 
@@ -81,6 +81,9 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 - [Salt, sugar, flour, and milk became staples instead of tracked ingredients] — final-review feedback: tracking them made nearly every recipe look incomplete and asked the learner to shop for things already in the cupboard. The build then found a consequence the plan had not considered — a staple-heavy recipe keeps only its tracked ingredients, so Rice Pudding (rice, milk, sugar) becomes a one-ingredient recipe.
 - [The collection grew from 26 to 35 recipes with a Meat & Fish category] — final-review feedback: the recommendations contained no meat or fish at all. Adds seven ingredients, nine recipes, and a fifth seeded category; existing kitchens show the new category's ingredients under a trailing "Other" group, which also fixes the older gap where ingredients with an unknown category were hidden entirely.
 - [The "then simplest" score tie-break was dropped] — it went beyond the rule the spec committed to (score, then fewest missing). With staples it also systematically favoured staple-heavy dishes: a one-ingredient Rice Pudding topped a full larder.
+- [The app opens straight onto the fridge door; the setup screen and the Done control are gone] — final-review feedback: "set up your kitchen" and the drop page were two halves of one job. The seeded categories are adopted on the first visit and edited in a disclosure inside the tray panel, so nothing stands between opening the app and filling the fridge.
+- [The ingredient tray moved beside the fridge, with My Recipes directly under it] — final-review feedback: the tray was a long strip below the fridge and My Recipes sat at the very bottom, so adding ingredients pushed the fridge out of view and the learner could not see the change they were causing. The tray is now a compact sticky panel of collapsible category groups beside the fridge, and My Recipes sits immediately under the fridge it acts on.
+- [The ranking gained a length bias: score × (1 + 0.1 × tracked ingredients)] — at the final review the learner noticed short recipes won simply because they are much easier to complete, and asked for longer ones to be favoured for the demo. The consequence was measured and accepted knowingly: bolognese (5/6, ×1.6) now outranks scrambled eggs (2/2, ×1.2). The built-in data no longer produces an equal-rank pair, so the remaining fewest-missing tie-break is now verified with a synthetic recipe pair instead of the old fixture.
 
 <!-- Leave this section empty when you write the checklist — no placeholder bullet.
      `5-build` appends a bullet here when implementation contradicts an assumption
