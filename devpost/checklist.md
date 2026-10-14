@@ -44,7 +44,7 @@ Build mode: fast
   Learner check: Press My Recipes, tap a card, check the green/red checklist and steps, press "Cook this" — watch the combining animation play once, then look at your fridge door and see the used ingredients gone or reduced.
   Commit: `Recipe card view with cook-this commit and combining animation`
 
-- [ ] **4. The shopping list restocks your fridge and the loop repeats**
+- [x] **4. The shopping list restocks your fridge and the loop repeats**
   Becomes usable: The shopping-list card lives on the fridge door; checking an item off adds it to stock with the recipe's quantity and removes it from the list. Cook, shop, restock — the next My Recipes reflects everything.
   Why now: This closes the core loop the scope named: stock changes as you cook and shop, so the app answers differently on Tuesday than on Sunday. With it, the whole journey is demonstrable in about a minute — which is exactly what the demo video needs.
   PRD ref: `prd.md > The Core Journey` (steps 9-10), `prd.md > Features and Behavior > The shopping list and restocking`
@@ -76,6 +76,8 @@ Reflection: [offered/answered/declined/already covered — personal answer belon
 Activity mode: [live app and editor, explicit static fallback, focused alternative, prior practice, or recap]
 
 ## Revisions
+
+- [Generate the shopping list needed a visible surface one slice earlier than planned] — the plan had slice 3 write to the shopping list while the card itself arrived in slice 4, which would have left the commit with no feedback at all. Slice 3 shipped a transient note on the fridge door instead; slice 4 replaced that note with the real shopping-list card and deleted the note code.
 
 <!-- Leave this section empty when you write the checklist — no placeholder bullet.
      `5-build` appends a bullet here when implementation contradicts an assumption
