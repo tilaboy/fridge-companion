@@ -21,10 +21,11 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 3. **Reload the page:** your kitchen is exactly as you left it.
 4. **Press My Recipes:** the app scores every built-in recipe against your stock and shows the top 2–3 that fit.
 5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Press **Cook this** — watch the ingredients combine, then see your fridge change — or **Generate the shopping list** to collect what's missing.
+6. **Shop and restock:** the shopping-list card sits on the fridge door. Press **Got it** on an item and it moves into your stock with the recipe's quantity — so the next My Recipes answers differently.
 
 ## For developers
 
 - Plain HTML/CSS/JS — no framework, no build step, no dependencies.
 - `data/ingredients.js` — the built-in ingredient tray; `data/recipes.js` — the built-in recipe collection.
 - `devpost/` — the planning documents (scope, PRD, spec) and the build checklist that tracks progress.
-- `verify/` — small node harnesses used to mechanically verify each build slice, e.g. `node verify/slice-1.js`.
+- `verify/` — small node harnesses used to mechanically verify each build slice, e.g. `node verify/slice-1.js`. `verify/slice-4.js` also walks the whole journey end to end (setup → add → recommend → cook → shop → recommend again).

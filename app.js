@@ -26,6 +26,13 @@
     return null;
   }
 
+  function getRecipe(id) {
+    for (var i = 0; i < recipes.length; i++) {
+      if (recipes[i].id === id) return recipes[i];
+    }
+    return null;
+  }
+
   /* ================================================================== *
    * 1. Pure logic
    * ================================================================== */
@@ -196,6 +203,23 @@
     return next;
   }
 
+  /* "Got it": the item joins stock with the recipe's quantity — combining
+   * with whatever is already there — and leaves the list (spec >
+   * Components > Shopping list card). Returns a new state. */
+  function buyShoppingListItem(state, ingredientId) {
+    var next = cloneState(state);
+    var bought = null;
+    next.shoppingList = next.shoppingList.filter(function (item) {
+      if (item.ingredientId === ingredientId && !bought) {
+        bought = item;
+        return false;
+      }
+      return true;
+    });
+    if (bought) next.stock[ingredientId] = (next.stock[ingredientId] || 0) + bought.amount;
+    return next;
+  }
+
   /* What the combining animation flies: the committed ingredient tiles,
    * resolved from the tray, converging on the dish emoji (spec >
    * Components > Combining animation). Pure data so the harness can
@@ -286,8 +310,7 @@
   var state = createState();
   var session = { entryMode: true, promptIngredientId: null, customCounter: 0 };
   var els = {};
-  var openPick = null;        // the recommendation currently centered
-  var doorNoteTimer = null;   // transient note on the fridge door
+  var openPick = null; // the recommendation currently centered
 
   function init() {
     els.setupScreen = document.getElementById('setup-screen');
@@ -324,7 +347,8 @@
     els.recipeSteps = document.getElementById('recipe-steps');
     els.cookThis = document.getElementById('cook-this');
     els.generateList = document.getElementById('generate-list');
-    els.doorNote = document.getElementById('door-note');
+    els.shoppingList = document.getElementById('shopping-list');
+    els.shoppingItems = document.getElementById('shopping-items');
     els.combineStage = document.getElementById('combine-stage');
     els.combineFly = document.getElementById('combine-fly');
     els.combineDish = document.getElementById('combine-dish');
@@ -454,6 +478,7 @@
   function renderAll() {
     renderCategoryChips();
     renderFridge();
+    renderShoppingList();
     renderTray();
     renderHint();
   }
@@ -498,6 +523,40 @@
       els.fridgeStock.appendChild(section);
     });
     els.fridgeEmptyNote.classList.toggle('hidden', any);
+  }
+
+  /* ---------- shopping list card (spec > Components > Shopping list card) ---------- */
+
+  /* Lives on the fridge door until its items are checked off; an emptied
+   * list removes the card. */
+  function renderShoppingList() {
+    els.shoppingItems.innerHTML = '';
+    state.shoppingList.forEach(function (item) {
+      var ing = getIngredient(item.ingredientId);
+      var fromRecipe = item.fromRecipeId ? getRecipe(item.fromRecipeId) : null;
+      var li = document.createElement('li');
+      li.className = 'shop-item';
+      li.innerHTML =
+        '<span class="shop-emoji">' + (ing ? ing.emoji : '') + '</span>' +
+        '<span class="shop-name">' + escapeHtml(ing ? ing.name : item.ingredientId) + '</span>' +
+        '<span class="shop-amount">' + item.amount + ' ' + escapeHtml(ing ? ing.unit : '') + '</span>' +
+        (fromRecipe ? '<span class="shop-from">for ' + escapeHtml(fromRecipe.name) + '</span>' : '');
+      var buy = document.createElement('button');
+      buy.type = 'button';
+      buy.className = 'shop-buy';
+      buy.textContent = 'Got it';
+      buy.setAttribute('aria-label', 'Mark ' + (ing ? ing.name : item.ingredientId) + ' as bought');
+      buy.addEventListener('click', function () { onBuyItem(item.ingredientId); });
+      li.appendChild(buy);
+      els.shoppingItems.appendChild(li);
+    });
+    els.shoppingList.classList.toggle('hidden', state.shoppingList.length === 0);
+  }
+
+  function onBuyItem(ingredientId) {
+    state = buyShoppingListItem(state, ingredientId);
+    saveState(state);
+    renderAll();
   }
 
   function renderTray() {
@@ -695,28 +754,14 @@
     closeRecipeView();
     closeRecommendations();
     renderAll();
-    playCombineAnimation(spec, 'On your shopping list!', function () {
-      showDoorNote(missing.length + (missing.length === 1 ? ' ingredient' : ' ingredients') +
-        ' added to your shopping list.');
-    });
-  }
-
-  /* A short-lived note on the fridge door — the slice-3 feedback for a
-   * list commit, until the shopping-list card itself arrives (slice 4). */
-  function showDoorNote(text) {
-    els.doorNote.textContent = text;
-    els.doorNote.classList.remove('hidden');
-    if (doorNoteTimer) clearTimeout(doorNoteTimer);
-    doorNoteTimer = setTimeout(function () {
-      els.doorNote.classList.add('hidden');
-    }, 5000);
+    playCombineAnimation(spec, 'On your shopping list!');
   }
 
   /* ---------- the combining animation (spec > Components > Combining animation) ---------- */
 
   /* One CSS keyframe sequence, played once per commit: the committed
    * ingredient tiles slide together and resolve into the dish emoji. */
-  function playCombineAnimation(spec, closingLine, onDone) {
+  function playCombineAnimation(spec, closingLine) {
     els.combineFly.innerHTML = '';
     spec.flying.forEach(function (ing, i) {
       var tile = document.createElement('span');
@@ -746,7 +791,6 @@
       if (finished) return;
       finished = true;
       els.combineStage.classList.add('hidden');
-      if (onDone) onDone();
     }
     els.combineDish.addEventListener('animationend', finish, { once: true });
     // Fallback for reduced-motion (animations disabled) and any browser
@@ -811,6 +855,8 @@
     missingIngredients: missingIngredients,
     cookRecipe: cookRecipe,
     addToShoppingList: addToShoppingList,
+    buyShoppingListItem: buyShoppingListItem,
+    getRecipe: getRecipe,
     combineAnimationSpec: combineAnimationSpec
   };
 
