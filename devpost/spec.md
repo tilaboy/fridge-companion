@@ -10,7 +10,8 @@ status: approved
 Fridge Door Companion is a single web page that runs in your browser. There is no server, no account, and no internet connection needed once it has loaded.
 
 - **Your kitchen lives in the browser's own storage** (a feature called `localStorage`). Think of it as a text file the browser keeps for this app: the app reads it when it opens and rewrites it whenever something changes. Two honest caveats: it's per-browser (Chrome's fridge isn't Firefox's fridge), and clearing browser data erases it.
-- **The recipes and the ingredient tray are built-in data files** that ship with the app — a couple dozen recipes and the full icon set the matching needs.
+- **The recipes and the ingredient tray are built-in data files** that ship with the app — three dozen recipes, the full icon set the matching needs, and the staples list.
+- **A few staples are assumed to be in your kitchen** (milk, flour, salt, sugar). They are never tracked, never scored, and never shopped for; recipes that call for them just list them as assumed.
 - **When you press My Recipes**, the app walks the recipe list, scores each recipe against your stock (the share of its ingredients you already have in full amount), sorts them, and shows the top 2–3.
 - **The look is CSS** — colors, the fridge-door surfaces, and the one signature animation (ingredients sliding together into the dish emoji) are all plain styling, no graphics library.
 
@@ -59,7 +60,7 @@ Carried forward from `prd.md > Look and Feel` and `scope.md > Inspiration & Iden
 
 - **Metaphor:** the screen is your fridge door, not a cookbook. Not a glossy recipe magazine, not a heavy 3D skeuomorphic fridge.
 - **Background:** subtle fridge surface — white/steel, soft shadows, a faint magnet-or-tape texture (CSS gradients/shadows, no images).
-- **Ingredient display:** chips/tiles grouped by the user's categories (Produce, Dairy, Pantry, Leftovers…).
+- **Ingredient display:** chips/tiles grouped by the user's categories (Produce, Dairy, Pantry, Leftovers, Meat & Fish…). Staples never appear here.
 - **Recipe cards:** 2–3 max, looking like notes or magnets — slight rotation, tape accent; dish as emoji/illustration; fit line "You have 4/5" or "Missing: 1"; a simple match indicator (e.g. a fill bar or dot row).
 - **Recipe view:** checklist with have/missing clearly marked — **green = have, red = missing**, high contrast — then the steps, closed with "Bon Appétit".
 - **Motion:** one signature animation — the chosen ingredients slide/toss together into the finished dish emoji, CSS keyframes, plays once on commit. Kept in the POC per the learner's ruling.
@@ -81,15 +82,15 @@ A small modal shown when an icon is dragged in or tapped. Number input + the ing
 PRD ref: `prd.md > Adding ingredients to stock`.
 
 ### Recommendation engine
-Scores every built-in recipe: **score = (ingredients you have in sufficient amount) ÷ (total ingredients)**, tie-broken by fewest missing. Amount-level check: needing 200 g with 100 g in stock counts as missing. Returns the top 2–3, or an empty result that triggers the empty state.
+Scores every built-in recipe: **score = (ingredients you have in sufficient amount) ÷ (total ingredients)**, tie-broken by fewest missing. Amount-level check: needing 200 g with 100 g in stock counts as missing. **Staples are excluded from both sides of the score** — they are assumed on hand, so a recipe calling for salt is neither rewarded nor penalised for it. Returns the top 2–3, or an empty result that triggers the empty state.
 PRD ref: `prd.md > Getting recommendations`.
 
 ### Recipe card view
-A recommendation card brought to center: dish emoji, the have/missing ingredient checklist (green/red), the cooking steps, the "Bon Appétit" close, and the commit buttons.
+A recommendation card brought to center: dish emoji, the have/missing ingredient checklist (green/red), a muted line naming the staples the recipe assumes, the cooking steps, the "Bon Appétit" close, and the commit buttons.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Commit actions
-**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has. **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card. Both rewrite the store; committing plays the combining animation.
+**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has, and never a staple. **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card; staples are never sent. Both rewrite the store; committing plays the combining animation.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Shopping list card
@@ -101,7 +102,7 @@ One CSS keyframe sequence: the chosen ingredient tiles slide/toss together and r
 PRD ref: `prd.md > Cooking from a recipe` (signature animation).
 
 ### Built-in data files
-`data/ingredients.js` — the icon tray: id, name, emoji, category, unit for every ingredient the recipes need. `data/recipes.js` — a couple dozen recipes: id, name, dish emoji, ingredient list with amounts, steps. The tray deliberately covers exactly the recipe collection (the POC's fixed-ingredient decision).
+`data/ingredients.js` — the icon tray: id, name, emoji, category, unit for every ingredient the recipes need, plus a `staple` flag on the four assumed-on-hand items (milk, flour, salt, sugar). `data/recipes.js` — three dozen recipes: id, name, dish emoji, ingredient list with amounts, steps. Every recipe ingredient exists in the tray, and every tray ingredient is used by at least one recipe (the POC's fixed-ingredient decision); staples are in the file so recipes keep one source for names and units, but they stay out of the tray, the score, and the shopping list.
 PRD ref: `prd.md > Setting up your kitchen (first use)`.
 
 ## Data Model
@@ -109,13 +110,17 @@ PRD ref: `prd.md > Setting up your kitchen (first use)`.
 User data (lives in browser storage, one versioned key):
 
 - `categories`: `[{ id, name }]` — the user's storage categories.
-- `stock`: `{ [ingredientId]: amount }` — whole numbers only; amount 0 means "not in stock" and the ingredient drops off the fridge display.
-- `shoppingList`: `[{ ingredientId, amount, fromRecipeId }]` — missing ingredients collected from recipe commits, removed when checked off.
+- `stock`: `{ [ingredientId]: amount }` — whole numbers only; amount 0 means "not in stock" and the ingredient drops off the fridge display. Staples never appear here.
+- `shoppingList`: `[{ ingredientId, amount, fromRecipeId }]` — missing ingredients collected from recipe commits, removed when checked off. Staples never appear here either.
 
 Built-in data (ships in code, never written at runtime):
 
-- `ingredients`: `[{ id, name, emoji, categoryId, unit }]`
+- `ingredients`: `[{ id, name, emoji, categoryId, unit, staple? }]`
 - `recipes`: `[{ id, name, dishEmoji, ingredients: [{ ingredientId, amount }], steps: [string] }]`
+
+### Staples
+
+Milk, flour, salt, and sugar are marked `staple: true` in the tray data and assumed to be in the kitchen: they are hidden from the tray, excluded from both sides of a recipe's score, never deducted when cooking, never reported missing, and never sent to the shopping list. The recipe view names them under "Assumed in your pantry" so a recipe still reads completely. The rule lives in one place (`isStaple`, derived from the ingredient data) so the data file stays the single source of truth, and `sanitizeState` drops any staple amounts left in storage by an earlier version. A consequence the learner accepted: a staple-heavy recipe keeps only its tracked ingredients, so Rice Pudding (rice, milk, sugar) is a one-ingredient recipe.
 
 For every piece: where it lives (above), how it updates (store rewrite on each change), and what happens when the user leaves and comes back (everything reloads from storage exactly as left). The recipes and tray are static code, so they are identical on every visit.
 
@@ -152,6 +157,8 @@ None. No APIs, no keys, no accounts, no network calls at runtime. `python3 -m ht
 - **`localStorage` instead of a user-visible text file** — the browser keeps the data; the load-on-open / rewrite-on-change model is identical. The learner's own instinct, mapped to what a browser can do.
 - **No framework** — one screen and one loop; structure cost exceeds benefit at POC size. Learner-accepted with the tradeoff stated.
 - **Fixed ingredient tray, no custom entry** — the tray covers the built-in recipes; first-use stays minutes-long. (From `prd.md > Product Decisions`.)
+- **Staples rather than tracking everything** — milk, flour, salt, and sugar are assumed on hand, so the fridge holds what you'd actually run out of. Cost, accepted at the final review: staple-heavy recipes get thin (Rice Pudding reduces to rice).
+- **A trailing "Other" group in the tray** — if the built-in data gains a category the user does not have (Meat & Fish, added after they set up), those ingredients group under "Other" instead of silently disappearing.
 - **Whole-number amounts, no unit conversion** — 3 eggs, 200 g flour. (From `scope.md > Explicitly Cut`.)
 - **Emoji dish illustrations, no photos** — no sourcing work, fits the fridge-door tone. (From `prd.md > Look and Feel`.)
 - **One CSS keyframe animation, no animation library** — the signature moment without a dependency.
@@ -166,6 +173,8 @@ None. No APIs, no keys, no accounts, no network calls at runtime. `python3 -m ht
 - Matching rule: score = have ÷ need, tie-break fewest missing, amount-level check — accepted as proposed.
 - Drag is the signature gesture; tap does the same thing — accepted so the app works on phones and demos faster.
 - One simple combining animation stays in the POC.
+- Milk, flour, salt, and sugar are staples: assumed always in the kitchen, never tracked, never scored, never shopped for (decided at the final kick-the-tires review).
+- Meat and fish join the collection — a new seeded "Meat & Fish" category, seven ingredients, and nine recipes — so the recommendations cover a real dinner (same review).
 
 **Implementation details derived from those decisions (not separately decided):**
 

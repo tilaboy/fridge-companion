@@ -1,11 +1,8 @@
 /* Built-in recipe collection (spec > Components > Built-in data files).
  *
- * "A couple dozen" recipes, every ingredient drawn from the built-in tray
- * (data/ingredients.js) — the tray deliberately covers exactly this
- * collection (the POC's fixed-ingredient decision).
- *
- * Loaded as a plain script before app.js; in node (verification harnesses)
- * the same file is require()d. */
+ * Every ingredient here exists in the built-in tray (data/ingredients.js) —
+ * including the staples (salt, sugar, flour, milk), which recipes may call
+ * for even though the app assumes they are always on hand. */
 (function (root) {
   'use strict';
 
@@ -448,6 +445,166 @@
         'Layer them in a pan with olive oil and salt.',
         'Top with cheese.',
         'Bake until everything is tender and the cheese is golden.'
+      ]
+    },
+    {
+      id: 'chicken_stir_fry',
+      name: 'Chicken Stir-Fry',
+      dishEmoji: '\uD83C\uDF57',
+      ingredients: [
+        { ingredientId: 'chicken', amount: 200 },
+        { ingredientId: 'bell_pepper', amount: 1 },
+        { ingredientId: 'soy_sauce', amount: 20 },
+        { ingredientId: 'garlic', amount: 2 },
+        { ingredientId: 'olive_oil', amount: 15 }
+      ],
+      steps: [
+        'Slice the chicken into strips.',
+        'Fry the garlic and chicken in the oil until golden.',
+        'Add the sliced pepper and stir-fry until just soft.',
+        'Splash in the soy sauce and toss.'
+      ]
+    },
+    {
+      id: 'pan_seared_chicken',
+      name: 'Pan-Seared Chicken',
+      dishEmoji: '\uD83C\uDF57',
+      ingredients: [
+        { ingredientId: 'chicken', amount: 250 },
+        { ingredientId: 'butter', amount: 15 },
+        { ingredientId: 'garlic', amount: 2 },
+        { ingredientId: 'olive_oil', amount: 10 }
+      ],
+      steps: [
+        'Pat the chicken dry and season it.',
+        'Sear it in the oil until deeply golden.',
+        'Add the butter and garlic and spoon the froth over the chicken.',
+        'Rest for a few minutes before slicing.'
+      ]
+    },
+    {
+      id: 'beef_bolognese',
+      name: 'Beef Bolognese',
+      dishEmoji: '\uD83C\uDF5D',
+      ingredients: [
+        { ingredientId: 'beef', amount: 250 },
+        { ingredientId: 'tomato', amount: 3 },
+        { ingredientId: 'onion', amount: 1 },
+        { ingredientId: 'garlic', amount: 2 },
+        { ingredientId: 'pasta', amount: 200 },
+        { ingredientId: 'olive_oil', amount: 15 }
+      ],
+      steps: [
+        'Soften the chopped onion and garlic in the oil.',
+        'Brown the beef, breaking it up as it cooks.',
+        'Add the chopped tomatoes and simmer into a thick sauce.',
+        'Boil the pasta and toss it through the sauce.'
+      ]
+    },
+    {
+      id: 'bacon_egg_pasta',
+      name: 'Bacon & Egg Pasta',
+      dishEmoji: '\uD83E\uDD53',
+      ingredients: [
+        { ingredientId: 'bacon', amount: 100 },
+        { ingredientId: 'pasta', amount: 200 },
+        { ingredientId: 'egg', amount: 2 },
+        { ingredientId: 'cheese', amount: 30 }
+      ],
+      steps: [
+        'Boil the pasta and keep a splash of the cooking water.',
+        'Crisp the bacon in a dry pan.',
+        'Beat the eggs with the grated cheese.',
+        'Off the heat, toss the pasta through the bacon, then the egg mixture — adding pasta water until glossy.'
+      ]
+    },
+    {
+      id: 'ham_cheese_toast',
+      name: 'Ham & Cheese Toast',
+      dishEmoji: '\uD83E\uDD6A',
+      ingredients: [
+        { ingredientId: 'bread', amount: 2 },
+        { ingredientId: 'ham', amount: 60 },
+        { ingredientId: 'cheese', amount: 40 },
+        { ingredientId: 'butter', amount: 10 }
+      ],
+      steps: [
+        'Butter the bread on the outside.',
+        'Layer the ham and cheese between the slices.',
+        'Toast in a pan, pressing down, until golden on both sides.',
+        'Cut in half so the cheese pulls.'
+      ]
+    },
+    {
+      id: 'sausage_potato_skillet',
+      name: 'Sausage & Potato Skillet',
+      dishEmoji: '\uD83C\uDF2D',
+      ingredients: [
+        { ingredientId: 'sausage', amount: 2 },
+        { ingredientId: 'potato', amount: 3 },
+        { ingredientId: 'onion', amount: 1 },
+        { ingredientId: 'bell_pepper', amount: 1 },
+        { ingredientId: 'olive_oil', amount: 15 }
+      ],
+      steps: [
+        'Cube the potatoes and slice the sausage.',
+        'Fry the potatoes in the oil until almost tender.',
+        'Add the sausage, onion, and pepper.',
+        'Cook until everything is browned and the onion is sweet.'
+      ]
+    },
+    {
+      id: 'chicken_soup',
+      name: 'Chicken Soup',
+      dishEmoji: '\uD83C\uDF72',
+      ingredients: [
+        { ingredientId: 'chicken', amount: 200 },
+        { ingredientId: 'carrot', amount: 2 },
+        { ingredientId: 'onion', amount: 1 },
+        { ingredientId: 'garlic', amount: 1 },
+        { ingredientId: 'olive_oil', amount: 10 }
+      ],
+      steps: [
+        'Soften the chopped onion, carrot, and garlic in the oil.',
+        'Add the chicken and enough water to cover.',
+        'Simmer gently until the chicken is cooked through.',
+        'Shred the chicken back into the broth and season to taste.'
+      ]
+    },
+    {
+      id: 'salmon_spinach',
+      name: 'Salmon & Spinach',
+      dishEmoji: '\uD83D\uDC1F',
+      ingredients: [
+        { ingredientId: 'salmon', amount: 200 },
+        { ingredientId: 'spinach', amount: 1 },
+        { ingredientId: 'lemon', amount: 1 },
+        { ingredientId: 'butter', amount: 15 },
+        { ingredientId: 'garlic', amount: 2 }
+      ],
+      steps: [
+        'Pan-fry the salmon skin-side down until crisp.',
+        'Turn it, add the butter and garlic, and baste.',
+        'Wilt the spinach in the same pan.',
+        'Finish with a squeeze of lemon.'
+      ]
+    },
+    {
+      id: 'tuna_pasta',
+      name: 'Tuna Pasta',
+      dishEmoji: '\uD83D\uDC20',
+      ingredients: [
+        { ingredientId: 'tuna', amount: 150 },
+        { ingredientId: 'pasta', amount: 200 },
+        { ingredientId: 'tomato', amount: 2 },
+        { ingredientId: 'olive_oil', amount: 15 },
+        { ingredientId: 'garlic', amount: 2 }
+      ],
+      steps: [
+        'Boil the pasta.',
+        'Fry the garlic in the oil, then add the chopped tomatoes.',
+        'Fold in the tuna and warm it through.',
+        'Toss with the drained pasta.'
       ]
     }
   ];

@@ -628,6 +628,17 @@ body {
 
 .check-amounts { margin-left: auto; font-size: 13px; opacity: .85; white-space: nowrap; }
 
+/* staples: assumed on hand, so neither green nor red */
+.recipe-staples {
+  margin: -8px 0 18px;
+  padding: 6px 12px;
+  background: rgba(120, 130, 140, .10);
+  border: 1px dashed rgba(120, 130, 140, .35);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 .recipe-steps-title {
   margin: 0 0 8px;
   font-size: 12px;

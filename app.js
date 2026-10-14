@@ -33,6 +33,17 @@
     return null;
   }
 
+  /* Staples are assumed always on hand (spec > Data Model > Staples): never
+   * tracked in stock, never shown in the tray, never counted in a recipe's
+   * score, never sent to the shopping list. Derived from the tray data so
+   * data/ingredients.js stays the single source of truth. */
+  var STAPLE_IDS = {};
+  ingredients.forEach(function (ing) { if (ing.staple) STAPLE_IDS[ing.id] = true; });
+
+  function isStaple(id) {
+    return !!STAPLE_IDS[id];
+  }
+
   /* ================================================================== *
    * 1. Pure logic
    * ================================================================== */
@@ -43,7 +54,8 @@
     { id: 'produce',   name: 'Produce' },
     { id: 'dairy',     name: 'Dairy' },
     { id: 'pantry',    name: 'Pantry' },
-    { id: 'leftovers', name: 'Leftovers' }
+    { id: 'leftovers', name: 'Leftovers' },
+    { id: 'meat',      name: 'Meat & Fish' }
   ];
 
   function createState() {
@@ -104,16 +116,25 @@
   }
 
   /* Group the built-in tray by the user's categories, in the user's own
-   * order. Categories with no tray ingredients are skipped. */
+   * order. Categories with no tray ingredients are skipped. An ingredient
+   * whose category the user does not have (a category added to the built-in
+   * data after they set up, for example) lands in a trailing "Other" group
+   * rather than silently disappearing. */
   function groupTrayByCategory(categories) {
     var byId = {};
     (categories || []).forEach(function (c) { byId[c.id] = []; });
+    var loose = [];
     ingredients.forEach(function (ing) {
       if (byId[ing.categoryId]) byId[ing.categoryId].push(ing);
+      else loose.push(ing);
     });
-    return (categories || [])
+    var groups = (categories || [])
       .map(function (c) { return { category: c, items: byId[c.id] }; })
       .filter(function (g) { return g.items.length > 0; });
+    if (loose.length > 0) {
+      groups.push({ category: { id: '__other', name: 'Other' }, items: loose });
+    }
+    return groups;
   }
 
   /* ================================================================== *
@@ -122,13 +143,16 @@
 
   /* Score one recipe against the stock: the share of its ingredients the
    * user holds in sufficient amount. The amount-level check means needing
-   * 200 g with 100 g in stock counts as missing (spec > Data Model). */
+   * 200 g with 100 g in stock counts as missing (spec > Data Model).
+   * Staples are excluded from both sides — they are assumed on hand. */
   function scoreRecipe(recipe, stock) {
     var have = 0;
+    var total = 0;
     recipe.ingredients.forEach(function (ri) {
+      if (isStaple(ri.ingredientId)) return;
+      total += 1;
       if ((stock[ri.ingredientId] || 0) >= ri.amount) have += 1;
     });
-    var total = recipe.ingredients.length;
     return {
       recipe: recipe,
       have: have,
@@ -139,19 +163,18 @@
   }
 
   /* The matching rule the spec committed to: score = have ÷ need, tie-broken
-   * by fewest missing, then simplest, then by id for a stable order. Only
-   * recipes with at least one ingredient in hand are candidates; the top
-   * 2-3 come back (prd.md > Product Decisions). */
+   * by fewest missing, then by id for a stable order. Only recipes with at
+   * least one ingredient in hand are candidates; the top 2-3 come back
+   * (prd.md > Product Decisions). */
   function recommend(state, recipeList) {
     var list = recipeList || recipes;
     return list
       .map(function (r) { return scoreRecipe(r, state.stock); })
       .filter(function (s) { return s.have > 0; })
       .sort(function (a, b) {
-        if (b.score !== a.score) return b.score - a.score;      // best fit first
-        if (a.missing !== b.missing) return a.missing - b.missing; // then fewest missing
-        if (a.total !== b.total) return a.total - b.total;      // then simplest
-        return a.recipe.id < b.recipe.id ? -1 : 1;              // stable order
+        if (b.score !== a.score) return b.score - a.score;         // best fit first
+        if (a.missing !== b.missing) return a.missing - b.missing;  // then fewest missing
+        return a.recipe.id < b.recipe.id ? -1 : 1;                 // stable order
       })
       .slice(0, 3);
   }
@@ -161,20 +184,25 @@
    * ================================================================== */
 
   /* The ingredients a recipe is missing: held in less than the required
-   * amount — the same amount-level rule the engine scores with. */
+   * amount — the same amount-level rule the engine scores with. Staples are
+   * never "missing" (they are assumed on hand, and never shopped for). */
   function missingIngredients(state, recipe) {
     return recipe.ingredients
-      .filter(function (ri) { return (state.stock[ri.ingredientId] || 0) < ri.amount; })
+      .filter(function (ri) {
+        return !isStaple(ri.ingredientId) && (state.stock[ri.ingredientId] || 0) < ri.amount;
+      })
       .map(function (ri) { return { ingredientId: ri.ingredientId, amount: ri.amount }; });
   }
 
   /* "Cook this": deduct each ingredient the user actually has — the full
    * recipe amount when there is enough, otherwise whatever is left, never
    * below zero. Ingredients that reach 0 drop off the fridge display
-   * (spec > Data Model), so their key is removed. Returns a new state. */
+   * (spec > Data Model), so their key is removed. Staples are never
+   * deducted: they are assumed on hand. Returns a new state. */
   function cookRecipe(state, recipe) {
     var next = cloneState(state);
     recipe.ingredients.forEach(function (ri) {
+      if (isStaple(ri.ingredientId)) return;
       var held = next.stock[ri.ingredientId] || 0;
       if (held <= 0) return; // missing: untouched
       var left = held - ri.amount;
@@ -260,7 +288,9 @@
     if (parsed.stock && typeof parsed.stock === 'object' && !Array.isArray(parsed.stock)) {
       Object.keys(parsed.stock).forEach(function (id) {
         var n = Number(parsed.stock[id]);
-        if (isValidAmount(n)) fresh.stock[id] = n;
+        // Staples are no longer tracked, so drop any left behind by an
+        // earlier version of the app.
+        if (isValidAmount(n) && !isStaple(id)) fresh.stock[id] = n;
       });
     }
     if (Array.isArray(parsed.shoppingList)) {
@@ -345,6 +375,7 @@
     els.recipeTitle = document.getElementById('recipe-title');
     els.recipeChecklist = document.getElementById('recipe-checklist');
     els.recipeSteps = document.getElementById('recipe-steps');
+    els.recipeStaples = document.getElementById('recipe-staples');
     els.cookThis = document.getElementById('cook-this');
     els.generateList = document.getElementById('generate-list');
     els.shoppingList = document.getElementById('shopping-list');
@@ -562,6 +593,10 @@
   function renderTray() {
     els.tray.innerHTML = '';
     groupTrayByCategory(state.categories).forEach(function (g) {
+      // Staples never appear in the tray: they are assumed on hand.
+      var items = g.items.filter(function (ing) { return !isStaple(ing.id); });
+      if (items.length === 0) return;
+
       var section = document.createElement('section');
       section.className = 'tray-group';
 
@@ -572,7 +607,7 @@
 
       var row = document.createElement('div');
       row.className = 'tray-row';
-      g.items.forEach(function (ing) { row.appendChild(makeTile(ing)); });
+      items.forEach(function (ing) { row.appendChild(makeTile(ing)); });
       section.appendChild(row);
       els.tray.appendChild(section);
     });
@@ -695,6 +730,7 @@
 
     els.recipeChecklist.innerHTML = '';
     recipe.ingredients.forEach(function (ri) {
+      if (isStaple(ri.ingredientId)) return; // listed separately as assumed
       var ing = getIngredient(ri.ingredientId);
       var held = state.stock[ri.ingredientId] || 0;
       var have = held >= ri.amount;
@@ -710,6 +746,18 @@
             (held > 0 ? ' (you have ' + held + ')' : '')) + '</span>';
       els.recipeChecklist.appendChild(li);
     });
+
+    // Staples the recipe calls for: neither green nor red, just assumed.
+    var staples = recipe.ingredients.filter(function (ri) { return isStaple(ri.ingredientId); });
+    if (staples.length > 0) {
+      els.recipeStaples.innerHTML = 'Assumed in your pantry: ' + staples.map(function (ri) {
+        var ing = getIngredient(ri.ingredientId);
+        return ing ? ing.emoji + ' ' + escapeHtml(ing.name) : escapeHtml(ri.ingredientId);
+      }).join(' &middot; ');
+      els.recipeStaples.classList.remove('hidden');
+    } else {
+      els.recipeStaples.classList.add('hidden');
+    }
 
     els.recipeSteps.innerHTML = '';
     recipe.steps.forEach(function (step) {
@@ -728,7 +776,9 @@
 
   function heldIngredientIds(recipe) {
     return recipe.ingredients
-      .filter(function (ri) { return (state.stock[ri.ingredientId] || 0) > 0; })
+      .filter(function (ri) {
+        return !isStaple(ri.ingredientId) && (state.stock[ri.ingredientId] || 0) > 0;
+      })
       .map(function (ri) { return ri.ingredientId; });
   }
 
@@ -847,6 +897,8 @@
     confirmCategories: confirmCategories,
     groupTrayByCategory: groupTrayByCategory,
     getIngredient: getIngredient,
+    isStaple: isStaple,
+    STAPLE_IDS: STAPLE_IDS,
     sanitizeState: sanitizeState,
     loadState: loadState,
     saveState: saveState,

@@ -47,7 +47,7 @@ check('fresh load has an empty shopping list', state.shoppingList.length === 0);
 /* --- category setup: confirm the seeds --- */
 var seeds = app.SEEDED_CATEGORIES;
 state.categories = app.confirmCategories(seeds);
-check('four seeded categories confirmed', state.categories.length === 4);
+check('five seeded categories confirmed', state.categories.length === 5, String(state.categories.length));
 check('saveState writes the versioned key',
   app.saveState(state) === true && storage.getItem(app.STORAGE_KEY) !== null);
 
@@ -80,13 +80,33 @@ check('numeric strings parse and pass', app.parseAmount('4') === 4 && app.isVali
 /* --- the tray groups by the user's categories --- */
 var groups = app.groupTrayByCategory(seeds);
 check('tray groups follow the user category order',
-  groups.map(function (g) { return g.category.id; }).join(',') === 'produce,dairy,pantry,leftovers');
+  groups.map(function (g) { return g.category.id; }).join(',') === 'produce,dairy,pantry,leftovers,meat',
+  groups.map(function (g) { return g.category.id; }).join(','));
 check('every tray ingredient is grouped',
   groups.reduce(function (n, g) { return n + g.items.length; }, 0) === globalThis.FDC_INGREDIENTS.length);
 check('tomato is filed under Produce',
   groups[0].items.some(function (i) { return i.id === 'tomato'; }));
 check('leftovers category is usable',
   groups[3].items.some(function (i) { return i.id === 'cooked_rice'; }));
+check('meat and fish have their own category',
+  groups[4].items.some(function (i) { return i.id === 'chicken'; }) &&
+  groups[4].items.some(function (i) { return i.id === 'salmon'; }));
+
+/* --- an ingredient whose category the user dropped stays visible --- */
+var withoutMeat = app.groupTrayByCategory(seeds.filter(function (c) { return c.id !== 'meat'; }));
+var fallback = withoutMeat[withoutMeat.length - 1];
+check('a dropped category falls back to "Other" instead of hiding ingredients',
+  fallback.category.id === '__other' && fallback.category.name === 'Other' &&
+  fallback.items.some(function (i) { return i.id === 'chicken'; }),
+  JSON.stringify(fallback.category));
+check('the fallback covers every ingredient the user has no category for',
+  withoutMeat.reduce(function (n, g) { return n + g.items.length; }, 0) === globalThis.FDC_INGREDIENTS.length);
+
+/* --- staples are marked in the tray data --- */
+check('staples are declared in the ingredient data',
+  app.isStaple('salt') && app.isStaple('sugar') && app.isStaple('flour') && app.isStaple('milk'));
+check('ordinary ingredients are not staples',
+  !app.isStaple('egg') && !app.isStaple('butter') && !app.isStaple('chicken'));
 
 /* --- bad storage falls back to first use (spec > Important Failure Modes) --- */
 storage.setItem(app.STORAGE_KEY, '{not json');
@@ -94,12 +114,14 @@ check('corrupted storage falls back to first use', app.loadState().categories.le
 
 storage.setItem(app.STORAGE_KEY, JSON.stringify({
   categories: seeds,
-  stock: { tomato: 0, onion: -1, garlic: 2.5, carrot: 4 },
+  stock: { tomato: 0, onion: -1, garlic: 2.5, carrot: 4, salt: 99 },
   shoppingList: 'nope'
 }));
 var sanitized = app.loadState();
 check('sanitize drops zero, negative, and fractional amounts',
   Object.keys(sanitized.stock).join(',') === 'carrot', JSON.stringify(sanitized.stock));
+check('sanitize drops staple stock left by an earlier version',
+  !('salt' in sanitized.stock), JSON.stringify(sanitized.stock));
 check('sanitize drops a malformed shopping list',
   Array.isArray(sanitized.shoppingList) && sanitized.shoppingList.length === 0);
 

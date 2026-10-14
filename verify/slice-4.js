@@ -64,12 +64,12 @@ function stateOf(stock, list) {
  * Scene 1 — restocking
  * ================================================================== */
 
-var scrambled = recipe('scrambled_eggs'); // egg 3, butter 10, salt 2
+var scrambled = recipe('scrambled_eggs'); // egg 3, butter 10 (+ salt, a staple)
 var withList = stateOf(
   stockOf([['egg', 2]]),
   [
     { ingredientId: 'butter', amount: 10, fromRecipeId: 'scrambled_eggs' },
-    { ingredientId: 'salt', amount: 2, fromRecipeId: 'scrambled_eggs' }
+    { ingredientId: 'cheese', amount: 30, fromRecipeId: 'scrambled_eggs' }
   ]
 );
 
@@ -78,13 +78,13 @@ var afterBuy = app.buyShoppingListItem(withList, 'butter');
 check('checking an item off adds the recipe quantity to stock (butter 10)',
   afterBuy.stock.butter === 10, JSON.stringify(afterBuy.stock));
 check('checking an item off removes it from the list',
-  afterBuy.shoppingList.length === 1 && afterBuy.shoppingList[0].ingredientId === 'salt');
+  afterBuy.shoppingList.length === 1 && afterBuy.shoppingList[0].ingredientId === 'cheese');
 check('buying combines with stock already there',
   app.buyShoppingListItem(withList, 'butter').stock.butter === 10 &&
   app.buyShoppingListItem(stateOf(stockOf([['butter', 5]]), withList.shoppingList), 'butter').stock.butter === 15);
 
 /* --- an emptied list removes the card --- */
-var empty = app.buyShoppingListItem(afterBuy, 'salt');
+var empty = app.buyShoppingListItem(afterBuy, 'cheese');
 check('checking the last item off empties the list (the card goes away)',
   empty.shoppingList.length === 0);
 var src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
@@ -118,37 +118,40 @@ check('journey starts at first use', journey.categories.length === 0);
 journey.categories = app.confirmCategories(app.SEEDED_CATEGORIES);
 app.saveState(journey);
 
-/* 2. Fill the fridge: 5 eggs, 10 g butter, 2 g salt (scrambled eggs is
- *    complete) and 100 g pasta (short of tomato pasta's 200 g). */
+/* 2. Fill the fridge: 5 eggs and 10 g butter (scrambled eggs is complete —
+ *    its salt is a staple and needs no tracking) and 100 g pasta (short of
+ *    tomato pasta's 200 g). */
 journey = app.addToStock(journey, 'egg', 5);
 journey = app.addToStock(journey, 'butter', 10);
-journey = app.addToStock(journey, 'salt', 2);
 journey = app.addToStock(journey, 'pasta', 100);
 app.saveState(journey);
 
 /* 3. My Recipes: the complete recipe is the top pick. */
 var picks = app.recommend(journey);
-check('the complete recipe is the top pick (scrambled eggs 3/3)',
-  picks.length > 0 && picks[0].recipe.id === 'scrambled_eggs' && picks[0].score === 1,
-  picks.length ? picks[0].recipe.id + ' ' + picks[0].score : 'none');
+check('the complete recipe is the top pick (scrambled eggs 2/2)',
+  picks.length > 0 && picks[0].recipe.id === 'scrambled_eggs' &&
+  picks[0].score === 1 && picks[0].total === 2,
+  picks.length ? picks[0].recipe.id + ' ' + picks[0].have + '/' + picks[0].total : 'none');
 
 /* 4. Cook this: the stock drops by the recipe amounts. */
 journey = app.cookRecipe(journey, scrambled);
 app.saveState(journey);
-check('after cooking: 2 eggs left, butter and salt gone',
-  journey.stock.egg === 2 && !('butter' in journey.stock) && !('salt' in journey.stock),
+check('after cooking: 2 eggs left, butter gone',
+  journey.stock.egg === 2 && !('butter' in journey.stock),
   JSON.stringify(journey.stock));
 
-/* 5. Generate the shopping list from the new top pick (soy rice bowl:
- *    cooked rice 250, egg 2, soy sauce 15 — the egg is in stock). */
+/* 5. Generate the shopping list from a card further down the picks — the
+ *    learner can open any of them, not just the first (soy rice bowl:
+ *    cooked rice 250, soy sauce 15; its egg is in stock). */
 picks = app.recommend(journey);
-check('after cooking, recommendations change (scrambled eggs is gone)',
-  picks.every(function (p) { return p.recipe.id !== 'scrambled_eggs'; }),
+check('after cooking, recommendations change (scrambled eggs is gone, pancakes tops)',
+  picks.every(function (p) { return p.recipe.id !== 'scrambled_eggs'; }) &&
+  picks[0].recipe.id === 'pancakes',
   picks.map(function (p) { return p.recipe.id; }).join(','));
 var soy = recipe('soy_rice_bowl');
-check('soy rice bowl is the new top pick (1/3, the egg is in stock)',
-  picks[0].recipe.id === 'soy_rice_bowl' && picks[0].have === 1 && picks[0].missing === 2,
-  picks.length ? picks[0].recipe.id + ' ' + picks[0].have + '/' + picks[0].total : 'none');
+check('soy rice bowl is among the picks',
+  picks.some(function (p) { return p.recipe.id === 'soy_rice_bowl'; }),
+  picks.map(function (p) { return p.recipe.id; }).join(','));
 journey = app.addToShoppingList(journey, soy);
 check('the shopping list holds the missing ingredients (rice 250, soy sauce 15)',
   journey.shoppingList.length === 2 &&

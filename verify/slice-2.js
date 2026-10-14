@@ -5,7 +5,9 @@
  * Drives the real recommendation engine (app.js) against the real built-in
  * data, with fixture stocks, and checks the matching rule the spec
  * committed to: score = have ÷ need, tie-break by fewest missing,
- * amount-level check, top 2-3, empty result for the empty state. */
+ * amount-level check, top 2-3, empty result for the empty state — plus the
+ * staple rule: milk, flour, salt, and sugar are assumed on hand, so they
+ * count on neither side of the score. */
 'use strict';
 
 function makeStorage() {
@@ -58,9 +60,20 @@ check('every tray ingredient is used by at least one recipe',
 
 var recipeIds = allRecipes.map(function (r) { return r.id; });
 check('recipe ids are unique', new Set(recipeIds).size === recipeIds.length);
-check('the collection is a couple dozen recipes', recipeIds.length >= 20 && recipeIds.length <= 30,
+check('the collection is three dozen-ish recipes', recipeIds.length >= 30 && recipeIds.length <= 40,
   String(recipeIds.length));
 check('every recipe has steps', allRecipes.every(function (r) { return r.steps.length >= 3; }));
+
+/* --- the meat and fish collection --- */
+var meats = ['chicken', 'beef', 'bacon', 'ham', 'sausage', 'salmon', 'tuna'];
+check('every meat and fish ingredient is in the tray',
+  meats.every(function (id) { return trayIds[id]; }));
+var meatRecipes = allRecipes.filter(function (r) {
+  return r.ingredients.some(function (ri) { return meats.indexOf(ri.ingredientId) !== -1; });
+});
+check('the collection has a real meat and fish spread', meatRecipes.length >= 9, String(meatRecipes.length));
+check('meat and fish ingredients are never staples',
+  meats.every(function (id) { return !app.isStaple(id); }));
 
 function stockOf(pairs) {
   var s = {};
@@ -69,7 +82,8 @@ function stockOf(pairs) {
 }
 
 /* --- a full kitchen: every recipe fits, at most 3 cards, stable order --- */
-var full = stockOf(tray.map(function (i) { return [i.id, 999]; }));
+var full = stockOf(tray.filter(function (i) { return !app.isStaple(i.id); })
+  .map(function (i) { return [i.id, 999]; }));
 var fullState = { categories: app.SEEDED_CATEGORIES, stock: full, shoppingList: [] };
 var picks = app.recommend(fullState);
 check('a full kitchen shows at most 3 cards', picks.length === 3, String(picks.length));
@@ -79,19 +93,30 @@ check('equal fits fall back to a stable id order',
   JSON.stringify(idsInOrder) === JSON.stringify(idsInOrder.slice().sort()),
   idsInOrder.join(','));
 
+/* --- staples never count: this is the rule that changed the engine --- */
+var scrambled = allRecipes.filter(function (r) { return r.id === 'scrambled_eggs'; })[0];
+var stapleScored = app.scoreRecipe(scrambled, stockOf([['egg', 5], ['butter', 10]]));
+check('a recipe calling for salt scores only its tracked ingredients (egg, butter -> 2/2)',
+  stapleScored.total === 2 && stapleScored.have === 2 && stapleScored.score === 1,
+  JSON.stringify(stapleScored));
+check('staples are never reported as missing',
+  app.missingIngredients({ stock: stockOf([['egg', 3]]) }, scrambled)
+    .map(function (m) { return m.ingredientId; }).join(',') === 'butter',
+  JSON.stringify(app.missingIngredients({ stock: stockOf([['egg', 3]]) }, scrambled)));
+
 /* --- a partial kitchen: the best fit is the top pick --- */
-var partial = { categories: app.SEEDED_CATEGORIES, stock: stockOf([['egg', 3], ['salt', 2]]), shoppingList: [] };
+var partial = { categories: app.SEEDED_CATEGORIES, stock: stockOf([['egg', 5], ['butter', 10], ['pasta', 100]]), shoppingList: [] };
 picks = app.recommend(partial);
 check('a partial kitchen still recommends', picks.length > 0);
-check('the top pick is the best fit (scrambled eggs: 2/3)',
-  picks[0].recipe.id === 'scrambled_eggs' && picks[0].have === 2 && picks[0].missing === 1,
+check('the top pick is the best fit (scrambled eggs, complete)',
+  picks[0].recipe.id === 'scrambled_eggs' && picks[0].have === 2 && picks[0].missing === 0,
   picks.length ? picks[0].recipe.id + ' ' + picks[0].have + '/' + picks[0].total : 'none');
 
 /* --- the amount-level check: needing 2 with 1 in stock counts as missing --- */
-var shortTomato = stockOf([['pasta', 200], ['tomato', 1], ['garlic', 2], ['olive_oil', 15], ['salt', 2]]);
+var shortTomato = stockOf([['pasta', 200], ['tomato', 1], ['garlic', 2], ['olive_oil', 15]]);
 var scored = app.scoreRecipe(allRecipes.filter(function (r) { return r.id === 'tomato_pasta'; })[0], shortTomato);
 check('a short amount counts as missing (need 2 tomatoes, have 1)',
-  scored.have === 4 && scored.missing === 1 && Math.abs(scored.score - 0.8) < 1e-9,
+  scored.have === 3 && scored.missing === 1 && Math.abs(scored.score - 0.75) < 1e-9,
   JSON.stringify(scored));
 
 var shortPasta = { categories: app.SEEDED_CATEGORIES, stock: stockOf([['pasta', 100]]), shoppingList: [] };
@@ -99,14 +124,14 @@ check('100 g of pasta fits no recipe (every one needs 200 g)',
   app.recommend(shortPasta).length === 0);
 
 /* --- the tie-break: equal score, fewest missing first --- */
-/* soy_rice_bowl scores 1/3 (missing 2) and one_pan_potato_bake scores 2/6
+/* soy_rice_bowl scores 1/3 (missing 2) and beef_bolognese scores 2/6
  * (missing 4) — equal 0.333, so fewest-missing must decide. */
-var tieStock = { categories: app.SEEDED_CATEGORIES, stock: stockOf([['potato', 2], ['carrot', 1], ['egg', 2]]), shoppingList: [] };
+var tieStock = { categories: app.SEEDED_CATEGORIES, stock: stockOf([['egg', 2], ['beef', 250], ['tomato', 3]]), shoppingList: [] };
 picks = app.recommend(tieStock);
 var tieIds = picks.map(function (p) { return p.recipe.id; });
-check('equal scores tie-break by fewest missing (soy rice bowl 1/3 before one-pan bake 2/6)',
-  tieIds.indexOf('soy_rice_bowl') !== -1 && tieIds.indexOf('one_pan_potato_bake') !== -1 &&
-  tieIds.indexOf('soy_rice_bowl') < tieIds.indexOf('one_pan_potato_bake'),
+check('equal scores tie-break by fewest missing (soy rice bowl 1/3 before bolognese 2/6)',
+  tieIds.indexOf('soy_rice_bowl') !== -1 && tieIds.indexOf('beef_bolognese') !== -1 &&
+  tieIds.indexOf('soy_rice_bowl') < tieIds.indexOf('beef_bolognese'),
   tieIds.join(','));
 
 /* --- the empty state: an empty fridge recommends nothing --- */

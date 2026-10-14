@@ -57,7 +57,7 @@ Build mode: fast
 ## Hands-on Checkpoints
 
 - [ ] Early usable behavior explored — after slice 2 (recommendations working): the learner tries My Recipes and shapes the card look and ranking before slices 3-4 build on them
-- [ ] Final kick-the-tires exploration and feedback completed — after slice 4: the learner runs the full core journey, tests awkward inputs, and reports anything broken, confusing, or worth changing
+- [x] Final kick-the-tires exploration and feedback completed — after slice 4: the learner ran the full core journey and reported two changes (meat and fish were missing entirely; tracking salt/sugar/flour/milk made recipes look incomplete). Both resolved — see Revisions.
 
 ## Final Review
 
@@ -78,6 +78,9 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 ## Revisions
 
 - [Generate the shopping list needed a visible surface one slice earlier than planned] — the plan had slice 3 write to the shopping list while the card itself arrived in slice 4, which would have left the commit with no feedback at all. Slice 3 shipped a transient note on the fridge door instead; slice 4 replaced that note with the real shopping-list card and deleted the note code.
+- [Salt, sugar, flour, and milk became staples instead of tracked ingredients] — final-review feedback: tracking them made nearly every recipe look incomplete and asked the learner to shop for things already in the cupboard. The build then found a consequence the plan had not considered — a staple-heavy recipe keeps only its tracked ingredients, so Rice Pudding (rice, milk, sugar) becomes a one-ingredient recipe.
+- [The collection grew from 26 to 35 recipes with a Meat & Fish category] — final-review feedback: the recommendations contained no meat or fish at all. Adds seven ingredients, nine recipes, and a fifth seeded category; existing kitchens show the new category's ingredients under a trailing "Other" group, which also fixes the older gap where ingredients with an unknown category were hidden entirely.
+- [The "then simplest" score tie-break was dropped] — it went beyond the rule the spec committed to (score, then fewest missing). With staples it also systematically favoured staple-heavy dishes: a one-ingredient Rice Pudding topped a full larder.
 
 <!-- Leave this section empty when you write the checklist — no placeholder bullet.
      `5-build` appends a bullet here when implementation contradicts an assumption
