@@ -34,7 +34,7 @@ Build mode: fast
   Learner check: Add several ingredients, press My Recipes, and look at the cards that come back — do the top picks look like things you'd actually make from that stock? Empty the fridge and press again to see the friendly message.
   Commit: `Recipe recommendations from current stock`
 
-- [ ] **3. You open a recipe, cook it, and the stock changes**
+- [x] **3. You open a recipe, cook it, and the stock changes**
   Becomes usable: Tapping a card centers it: have/missing checklist (green/red), the cooking steps, the "Bon Appétit" close. "Cook this" deducts only what you have; "Generate the shopping list" sends the missing ingredients (with the recipe's quantities) to the shopping list. Committing plays the combining animation once.
   Why now: The kernel proved recommendations; this slice proves the commit half of the core loop — cooking changes your kitchen, which is what makes tomorrow's recommendations different from today's. It also carries the demo's signature animation at the exact moment it belongs: on commit.
   PRD ref: `prd.md > The Core Journey` (steps 7-8), `prd.md > Features and Behavior > Cooking from a recipe`
