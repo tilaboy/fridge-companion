@@ -57,6 +57,7 @@ Build mode: fast
 ## Hands-on Checkpoints
 
 - [ ] Early usable behavior explored — after slice 2 (recommendations working): the learner tries My Recipes and shapes the card look and ranking before slices 3-4 build on them
+  - Not taken as a separate pass: fast mode ran straight from slice 2 into slices 3-4, so the reserved window closed before the learner used it. The shaping feedback this checkpoint was designed to capture (card look, ranking) arrived at the final review instead and was resolved there in two rounds — see Revisions. Left unchecked deliberately: the check itself never happened, and a back-filled box would be false evidence.
 - [x] Final kick-the-tires exploration and feedback completed — after slice 4: the learner ran the full core journey and reported changes in two rounds — first that meat and fish were missing entirely and that tracking salt/sugar/flour/milk made recipes look incomplete; then that the setup page should merge into the door, that the tray should move beside the fridge with My Recipes next to it, and that longer recipes should be favoured in the ranking. A third pass asked for the columns to be reversed (fridge one third, tray two thirds) and for cooking to announce what it removes. All resolved — see Revisions.
 
 ## Final Review
@@ -67,13 +68,13 @@ Build mode: fast
 
 - [ ] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
 - [ ] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
-- [ ] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
+- [x] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
 
-Activity and evidence: [what actually happened; real document/test/code references; unfinished work if interrupted]
-Route and stops: [actual paths and symbols; guided stops completed, or reference-only route]
-Edit outcome: [tried/kept/reverted/declined/not applicable; verification if changed]
-Reflection: [offered/answered/declined/already covered — personal answer belongs only in the ignored profile]
-Activity mode: [live app and editor, explicit static fallback, focused alternative, prior practice, or recap]
+Activity and evidence: Offered at the end of `5-build`, tailored to a professional programmer who is plan-first experienced and new to spec-driven (`learner-profile.md > Desired Learning Outcome`: how spec-driven development smooths the process). One focused alternative proposed, per the wrap-up reference: trace the length-bias decision through its evidence — `checklist.md > Revisions` (the trade accepted knowingly: bolognese 5/6 ×1.6 outranking complete scrambled eggs 2/2 ×1.2) and `verify/slice-2.js` (the synthetic equal-rank pair that re-proved the fewest-missing tie-break after the bias invalidated the old fixture) — or try the small edit below. Awaiting the learner's choice; a redirect is welcome, and the map stands on its own either way.
+Route and stops: Reference route prepared inside `devpost/app-map.html`, not yet walked through together: `app.js > onCookThis` (the "Cook this" handler — reads the deduction before committing) → `app.js > cookRecipe` (the deduction rule in pure logic) → `app.js > playRemoveFloat` (the chips rising off the fridge), with the storage stop `saveState` / `loadState` around `STORAGE_KEY` (`'fdc-state-v1'`) noted alongside. Paths and symbols checked against the finished code at commit `ac6e542`.
+Edit outcome: Not yet — one optional small edit offered: change `LENGTH_BONUS` in `app.js` (0.1 → e.g. 0.2), press My Recipes to watch the order change, run `node verify/slice-2.js` to see the harness react, then keep or revert. No kernel, data, or dependency changes.
+Reflection: Offered, awaiting the answer: "What would you do differently next time you start with an agent?" A short answer or declining is enough; a personal answer belongs only in the ignored learner profile.
+Activity mode: Reference route in the app map plus a live focused alternative offered, not yet taken. Map verified by rendering `file://…/devpost/app-map.html` in headless Chrome (light and dark both checked).
 
 ## Revisions
 
@@ -86,6 +87,7 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 - [The ranking gained a length bias: score × (1 + 0.1 × tracked ingredients)] — at the final review the learner noticed short recipes won simply because they are much easier to complete, and asked for longer ones to be favoured for the demo. The consequence was measured and accepted knowingly: bolognese (5/6, ×1.6) now outranks scrambled eggs (2/2, ×1.2). The built-in data no longer produces an equal-rank pair, so the remaining fewest-missing tie-break is now verified with a synthetic recipe pair instead of the old fixture.
 - [The door's columns were reversed to one third fridge, two thirds tray] — after the tray moved beside the fridge, the fridge still held the wide column and the tray was squeezed into a 300px strip, which is the wrong way round: the tray is where the learner picks and drags. The fridge stays legible as a narrow column, and the tray gets the room. Verified in a real browser: 986px row measures 322px fridge / 644px tray.
 - ["Cook this" now floats the amounts it removes, rising off the fridge and evaporating] — the deduction was silent, so the only way to see what cooking cost was to notice the fridge had got shorter. Each removed amount now rises off the fridge in its own chip, read from the state before the deduction so the numbers can never drift from what actually happened. Two build findings fixed along the way: the chips must be measured after the layer is unhidden (a display:none parent reports zero-width children), and the zig-zag has to stay inside the fridge's own column or the float drifts over the tray it is supposed to sit behind.
+- [The planned early hands-on checkpoint after slice 2 was never taken] — fast mode continued into slices 3-4 without the planned pause, so the window reserved for shaping the card look and the ranking closed unused. The feedback that checkpoint was designed to capture arrived at the final review instead, in two rounds, and was resolved there (meat and fish, staples, the one-screen door, the length bias — see the revisions above). Recorded here rather than back-filled: the box stays unchecked because the check itself never happened, and the final review's two rounds preserved everything the early pass would have offered.
 
 <!-- Leave this section empty when you write the checklist — no placeholder bullet.
      `5-build` appends a bullet here when implementation contradicts an assumption
