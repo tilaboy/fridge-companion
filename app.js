@@ -899,7 +899,13 @@
    * the fridge and evaporates (spec > Components > Commit actions). The
    * float is anchored to the fridge's own screen position and held inside
    * its column, so it reads as coming out of the storage no matter how wide
-   * the layout makes the fridge. */
+   * the layout makes the fridge.
+   *
+   * The chips play one at a time, REMOVE_STAGGER_MS apart, rather than all
+   * rising together (final-review round three): a multi-ingredient cook read
+   * as one blur, so the individual deductions were impossible to follow. */
+  var REMOVE_STAGGER_MS = 500;
+
   function playRemoveFloat(deductions) {
     clearTimeout(removeFloatTimer);
     els.removeFloat.innerHTML = '';
@@ -908,11 +914,15 @@
       return;
     }
 
+    // The last chip starts (n-1) staggers in, then takes its 1250ms rise,
+    // plus a beat to settle before the layer is cleared.
+    var total = 1250 + (deductions.length - 1) * REMOVE_STAGGER_MS + 150;
+
     var rect = els.fridge.getBoundingClientRect();
     var midX = rect.left + rect.width / 2;
     var startY = rect.top + Math.max(44, rect.height * 0.40);
-    // The fridge is one third of the screen, so the float stays narrow: a
-    // small zig-zag that never leaves the fridge's own width.
+    // The fridge column is narrow, so the float stays narrow: a small
+    // zig-zag that never leaves the fridge's own width.
     var maxSpread = Math.max(0, Math.min(rect.width * 0.13, 26));
     // Room the chip has, inside the fridge's padding.
     var room = rect.width - 34;
@@ -922,6 +932,9 @@
     title.textContent = 'Out of the fridge';
     title.style.left = midX + 'px';
     title.style.top = (rect.top + 6) + 'px';
+    // The title stays for the whole sequence: with the chips staggered, a
+    // 1250ms title would vanish mid-way through a multi-ingredient cook.
+    title.style.animationDuration = total + 'ms';
     els.removeFloat.appendChild(title);
 
     // Unhide before building the chips: the layer is pointer-events:none,
@@ -955,7 +968,7 @@
       var spread = ((i % 3) - 1) * maxSpread;
       chip.style.left = (midX + spread) + 'px';
       chip.style.top = (startY + i * 26) + 'px';
-      chip.style.animationDelay = (i * 90) + 'ms';
+      chip.style.animationDelay = (i * REMOVE_STAGGER_MS) + 'ms';
       els.removeFloat.appendChild(chip);
 
       // A narrow fridge comes first: if the full line would spill over the
@@ -963,8 +976,6 @@
       if (chip.getBoundingClientRect().width > room) name.remove();
     });
 
-    // Longest chip: its delay plus the 1250ms rise, plus a beat to settle.
-    var total = 1250 + deductions.length * 90 + 150;
     removeFloatTimer = setTimeout(function () {
       els.removeFloat.classList.add('hidden');
       els.removeFloat.innerHTML = '';

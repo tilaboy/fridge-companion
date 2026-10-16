@@ -189,13 +189,15 @@ body {
  * the fridge holds its place in view while ingredients are picked, so the
  * drag is short and the fridge is readable in the same glance.
  *
- * The fridge takes one third and the tray two thirds: the tray is where the
- * learner spends their time (picking, dragging), so it gets the room, while
- * the fridge stays legible as a narrow column that never scrolls away. */
+ * The fridge takes two fifths and the tray three fifths: the tray is still
+ * where the learner spends their time (picking, dragging), but the fridge
+ * was legible-but-cramped at one third — final-review round three asked for
+ * it a little larger, and 2fr of 5 keeps the tray in the majority while
+ * giving the fridge room to read as a door, not a strip. */
 .door-layout {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: 20px;
 }
 

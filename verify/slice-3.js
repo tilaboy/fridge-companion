@@ -208,5 +208,13 @@ check('the removal float is played once per cook only (definition + one cook cal
   (src.match(/playRemoveFloat\(/g) || []).length === 2,
   String((src.match(/playRemoveFloat\(/g) || []).length));
 
+/* --- the removal chips play one at a time, half a second apart --- */
+check('the removal chips are staggered half a second apart, not simultaneous',
+  /REMOVE_STAGGER_MS\s*=\s*500/.test(src) &&
+  src.indexOf('(i * REMOVE_STAGGER_MS)') !== -1);
+check('the clear timer covers the last staggered chip, and the title lasts the sequence',
+  src.indexOf('(deductions.length - 1) * REMOVE_STAGGER_MS') !== -1 &&
+  src.indexOf("title.style.animationDuration = total + 'ms'") !== -1);
+
 console.log(failures.length === 0 ? '\nALL CHECKS PASSED' : '\n' + failures.length + ' CHECK(S) FAILED');
 process.exit(failures.length === 0 ? 0 : 1);
