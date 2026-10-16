@@ -140,7 +140,7 @@
 
 <section aria-labelledby="what">
   <h2 id="what">What this app is</h2>
-  <p>Fridge Door Companion keeps your whole kitchen on one screen. A <strong>fridge</strong> sits on the left, the <strong>ingredient tray</strong> beside it, and <strong>My Recipes</strong> directly under the fridge. You tap or drag ingredients into the fridge and enter how much you have; press <em>My Recipes</em> and the app ranks its built-in recipes against your stock, showing the best 2–3 picks with a “You have 4/5 · Missing: 1” fit line. Open a pick, <em>Cook this</em> to deduct what you used, or <em>Generate the shopping list</em> and check items off as you buy them. Everything is stored in your browser’s <code>localStorage</code> — there is no backend and no account.</p>
+  <p>Fridge Door Companion keeps your whole kitchen on one screen. A <strong>fridge</strong> sits on the left, the <strong>ingredient tray</strong> beside it, and <strong>My Recipes</strong> directly under the fridge. You tap or drag ingredients into the fridge and enter how much you have; press <em>My Recipes</em> and the app ranks its built-in recipes against your stock, showing the best 2–3 picks with a “You have 4/5 · Missing: 1” fit line. Open a pick and <em>Cook this</em> to deduct what you used — when the recipe is missing something, <em>Generate the shopping list</em> also appears, and you check items off as you buy them. Everything is stored in your browser’s <code>localStorage</code> — there is no backend and no account.</p>
 </section>
 
 <section aria-labelledby="pieces">
@@ -151,7 +151,7 @@
     <li><code>app.js</code><span>the logic in three sections: <strong>pure logic</strong> (stock math, scoring) → <strong>store</strong> (localStorage) → <strong>UI</strong> (rendering and events)</span></li>
     <li><code>data/ingredients.js</code><span>32 built-in ingredients — 28 tracked in the tray, 4 marked <code>staple: true</code> (salt, sugar, flour, milk) that are assumed always on hand</span></li>
     <li><code>data/recipes.js</code><span>35 built-in recipes; every ingredient they call for exists in the tray</span></li>
-    <li><code>verify/slice-1..4.js</code><span>four node harnesses (114 assertions) that run the pure logic without a browser</span></li>
+    <li><code>verify/slice-1..4.js</code><span>four node harnesses (117 assertions) that run the pure logic without a browser</span></li>
   </ul>
 </section>
 
@@ -259,6 +259,10 @@
     <p>Categories: <code>SEEDED_CATEGORIES</code> in <code>app.js</code> (five: Produce, Dairy, Pantry, Leftovers, Meat &amp; Fish). Layout: <code>.door-layout</code> in <code>styles.css</code> — <code>grid-template-columns: minmax(0, 2fr) minmax(0, 3fr)</code>, fridge two fifths, tray three fifths; one column below 860&nbsp;px.</p>
   </details>
   <details>
+    <summary>The buttons on a recipe card</summary>
+    <p><code>renderRecipeView</code> in <code>app.js</code> — search <code>missingCount</code>. The shopping-list button is toggled hidden when the open recipe is missing nothing, so a complete recipe shows “Cook this” alone; “Cook this” itself is always shown. <code>verify/slice-3.js</code> asserts the toggle is driven by the recipe’s missing count.</p>
+  </details>
+  <details>
     <summary>The wording of the empty states</summary>
     <p><code>renderRecommendations</code> in <code>app.js</code> — the “Uh-oh — your fridge is empty, please refuel.” and “Unfortunately, there’s nothing fitting.” messages.</p>
   </details>
@@ -277,8 +281,8 @@
   <h2 id="run">Run it again</h2>
   <ul class="run">
     <li>Start it: in the project folder run <code>python3 -m http.server 8000</code>, then open <code>http://localhost:8000</code>. (Any static file server works; there is no build step.)</li>
-    <li>Check it: <code>node verify/slice-1.js</code> through <code>node verify/slice-4.js</code> — 114 assertions, all run without a browser.</li>
-    <li>Source: this map was generated from commit <code>e06b043</code> (“Widen the fridge to two fifths and play the deductions one by one”). It is a snapshot — the code can drift from this map, so treat paths and symbols as anchors to search for, not permanent line numbers.</li>
+    <li>Check it: <code>node verify/slice-1.js</code> through <code>node verify/slice-4.js</code> — 117 assertions, all run without a browser.</li>
+    <li>Source: this map was generated from commit <code>19a250d</code> (“Show the shopping-list button only when the recipe is missing something”). It is a snapshot — the code can drift from this map, so treat paths and symbols as anchors to search for, not permanent line numbers.</li>
   </ul>
 </section>
 
