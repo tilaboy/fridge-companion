@@ -94,7 +94,7 @@ A recommendation card brought to center: dish emoji, the have/missing ingredient
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Commit actions
-**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has, and never a staple — and floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card; staples are never sent. Both rewrite the store; committing plays the combining animation.
+**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has, and never a staple — and floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card; staples are never sent. The shopping button appears only when the recipe actually has missing ingredients — a recipe the kitchen already covers shows **"Cook this"** alone, because there is nothing to shop for. Both rewrite the store; committing plays the combining animation.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Shopping list card

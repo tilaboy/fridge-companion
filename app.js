@@ -811,10 +811,12 @@
       els.recipeSteps.appendChild(li);
     });
 
-    // Nothing to shop for when the kitchen already covers the recipe.
-    var missing = missingIngredients(state, recipe).length;
-    els.generateList.disabled = missing === 0;
-    els.generateList.title = missing === 0 ? 'You already have everything for this one' : '';
+    // A recipe the kitchen already covers has nothing to shop for, so the
+    // shopping button disappears entirely and "Cook this" stands alone.
+    var missingCount = missingIngredients(state, recipe).length;
+    els.generateList.classList.toggle('hidden', missingCount === 0);
+    els.generateList.disabled = missingCount === 0; // belt and braces: hidden first
+    els.generateList.title = missingCount === 0 ? 'You already have everything for this one' : '';
   }
 
   /* ---------- commit actions (spec > Components > Commit actions) ---------- */

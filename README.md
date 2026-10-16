@@ -20,7 +20,7 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 2. **Fill the fridge:** the ingredient panel sits beside the fridge. Tap a category to open it, then tap an ingredient — or drag it straight into the fridge — and enter an amount. Staples (milk, flour, salt, sugar) are assumed to be in your kitchen, so they never appear in the tray.
 3. **Reload the page:** your kitchen is exactly as you left it.
 4. **Press My Recipes** (it sits right under the fridge): the app scores every built-in recipe against your stock and shows the top 2–3. Longer recipes get a thumb on the scale, so a full dinner is not beaten by a two-ingredient snack.
-5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Press **Cook this** — watch the ingredients combine, and watch the amounts it removes float off the fridge and evaporate ("Out of the fridge") — or **Generate the shopping list** to collect what's missing.
+5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Press **Cook this** — watch the ingredients combine, and watch the amounts it removes float off the fridge and evaporate ("Out of the fridge"). **Generate the shopping list** only appears when the recipe is actually missing something; a recipe you can already make shows "Cook this" alone.
 6. **Shop and restock:** the shopping-list card sits on the fridge door. Press **Got it** on an item and it moves into your stock with the recipe's quantity — so the next My Recipes answers differently.
 
 ## For developers

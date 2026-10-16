@@ -212,6 +212,12 @@ check('the removal float is played once per cook only (definition + one cook cal
 check('the removal chips are staggered half a second apart, not simultaneous',
   /REMOVE_STAGGER_MS\s*=\s*500/.test(src) &&
   src.indexOf('(i * REMOVE_STAGGER_MS)') !== -1);
+
+/* --- a recipe the kitchen already covers has nothing to shop for --- */
+check('a fully stocked recipe hides the shopping button and leaves "Cook this" alone',
+  src.indexOf('var missingCount = missingIngredients(state, recipe).length;') !== -1 &&
+  src.indexOf("els.generateList.classList.toggle('hidden', missingCount === 0)") !== -1,
+  'expected the button to be toggled on the open recipe\'s missing count');
 check('the clear timer covers the last staggered chip, and the title lasts the sequence',
   src.indexOf('(deductions.length - 1) * REMOVE_STAGGER_MS') !== -1 &&
   src.indexOf("title.style.animationDuration = total + 'ms'") !== -1);
