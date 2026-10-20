@@ -2,6 +2,12 @@
 
 A local-first fridge-door companion: it remembers what's in your kitchen — organized by your own food categories — and recommends recipes from what you actually have. No server, no account, no network calls; your kitchen lives in your browser's own storage.
 
+## Watch it first
+
+[![Watch the Fridge Door Companion demo](https://i.ytimg.com/vi/lcoYnsWC08E/hqdefault.jpg)](https://youtu.be/lcoYnsWC08E)
+
+▶ **[https://youtu.be/lcoYnsWC08E](https://youtu.be/lcoYnsWC08E)** — the whole loop in about a minute: filling the fridge, the ranking, cooking a dish, and the fridge paying for dinner. If you only watch one thing, watch this.
+
 ## Run it
 
 From this folder:
@@ -31,3 +37,7 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 - The door is one screen: a fridge in the middle with one bubble per category hung either side, placed by percentage on a fixed-height stage so nothing is measured at runtime (below 1000px the bubbles drop under the fridge as a two-up grid). Categories are edited in the disclosure under the fridge rather than on a first-use screen. The icon drag is a pointer drag (not HTML5 drag-and-drop) so it can be exercised end to end by the harnesses.
 - Your kitchen keeps the categories you chose. If the built-in data later gains a category (Meat & Fish, for example), its ingredients show up under a trailing **Other** bubble until you tick that category on in **Rename or add categories**.
 - `verify/` — small node harnesses used to mechanically verify each build slice, e.g. `node verify/slice-1.js`. `verify/slice-4.js` also walks the whole journey end to end (first open → add → recommend → cook → shop → recommend again).
+
+## License
+
+[MIT](LICENSE) © 2026 Chao Li. Use it, fork it, ship it — keep the copyright notice and you are done. A link back is welcome, but not required.
