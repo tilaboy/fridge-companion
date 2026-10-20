@@ -12,7 +12,7 @@ Fridge Door Companion is a single web page that runs in your browser. There is n
 - **Your kitchen lives in the browser's own storage** (a feature called `localStorage`). Think of it as a text file the browser keeps for this app: the app reads it when it opens and rewrites it whenever something changes. Two honest caveats: it's per-browser (Chrome's fridge isn't Firefox's fridge), and clearing browser data erases it.
 - **The recipes and the ingredient tray are built-in data files** that ship with the app — three dozen recipes, the full icon set the matching needs, and the staples list.
 - **A few staples are assumed to be in your kitchen** (milk, flour, salt, sugar). They are never tracked, never scored, and never shopped for; recipes that call for them just list them as assumed.
-- **The app is one screen.** The fridge door appears on open, with the ingredient tray beside it folded into one collapsible group per category; there is no setup screen and no Done control to get past.
+- **The app is one screen.** The fridge door appears on open: a fridge standing in the middle, with one floating bubble per category hanging around it. Tapping the fridge swings its door open to show what is inside; tapping a bubble swells it into a grid of ingredient icons. There is no setup screen and no Done control to get past.
 - **When you press My Recipes**, the app walks the recipe list, scores each recipe against your stock (the share of its ingredients you already have in full amount), weights longer recipes up, sorts them, and shows the top 2–3.
 - **The look is CSS** — colors, the fridge-door surfaces, and the one signature animation (ingredients sliding together into the dish emoji) are all plain styling, no graphics library.
 
@@ -22,9 +22,9 @@ Why this shape and not something bigger: the product is one screen and one loop.
 
 The PRD's core journey, traced through the pieces (PRD ref: `prd.md > The Core Journey`):
 
-1. **First open** → the app reads the browser storage → it's empty → the seeded categories are adopted and saved, and the fridge door renders immediately, with the ingredient tray beside it grouped by those categories. No setup screen stands in front of the app.
-2. **Categories edited (whenever you like)** → the tray panel's "Rename or add categories" disclosure renames, adds, or drops categories → storage is rewritten → the tray and the fridge regroup.
-3. **Open a category, then drag or tap an icon** → an amount prompt appears (e.g. 2, eggs) → confirm → the stock is updated and storage is rewritten → the fridge shows the new ingredient.
+1. **First open** → the app reads the browser storage → it's empty → the seeded categories are adopted and saved, and the door renders immediately — the fridge in the middle, one bubble per category around it. No setup screen stands in front of the app.
+2. **Categories edited (whenever you like)** → the door's "Rename or add categories" disclosure renames, adds, or drops categories → storage is rewritten → the bubbles and the fridge regroup.
+3. **Open a bubble, then drag, tap, or double-click an icon** → tapping asks how much (e.g. 2, eggs) → confirm → the stock is updated and storage is rewritten → the fridge door swings open on the new ingredient. Double-clicking skips the question and drops one sensible portion in.
 4. **My Recipes** (directly under the fridge) → the matching engine scores every built-in recipe against the stock, weighting longer recipes up → the top 2–3 render as cards.
 5. **Tap a card** → it comes to center: the have/missing checklist (green/red), then the steps, closed with "Bon Appétit".
 6. **"Cook this"** → the ingredients you have are deducted from stock; storage is rewritten. **"Generate the shopping list"** → the missing ingredients appear on the shopping-list card. The combining animation plays once.
@@ -60,7 +60,7 @@ Carried forward from `prd.md > Look and Feel` and `scope.md > Inspiration & Iden
 
 - **Metaphor:** the screen is your fridge door, not a cookbook. Not a glossy recipe magazine, not a heavy 3D skeuomorphic fridge.
 - **Background:** subtle fridge surface — white/steel, soft shadows, a faint magnet-or-tape texture (CSS gradients/shadows, no images).
-- **Ingredient display:** the tray panel beside the fridge — one collapsible group per user category (Produce, Dairy, Pantry, Leftovers, Meat & Fish…), each group showing its ingredient count. Staples never appear here. The fridge itself shows what is in stock as chips, grouped by the same categories.
+- **Ingredient display:** one floating bubble per user category (Produce, Dairy, Pantry, Leftovers, Meat & Fish…), hanging in two columns around the fridge — each a soft tinted orb showing three peeks of what is inside, the category name, and how many of its ingredients are already in the fridge ("2/10"). Tapping a bubble swells it into a rounded card holding that group's ingredient icons; the other bubbles step back, blurred, so one group is legible at a time. Staples never appear. The fridge itself is a fridge: shut, it carries a note with the item count and "tap to open"; opened, it shows the stock standing on its shelves, one shelf per category, each item with its amount (×4, 200 g).
 - **Recipe cards:** 2–3 max, looking like notes or magnets — slight rotation, tape accent; dish as emoji/illustration; fit line "You have 4/5" or "Missing: 1"; a simple match indicator (e.g. a fill bar or dot row).
 - **Recipe view:** checklist with have/missing clearly marked — **green = have, red = missing**, high contrast — then the steps, closed with "Bon Appétit".
 - **Motion:** one signature animation — the chosen ingredients slide/toss together into the finished dish emoji, CSS keyframes, plays once on commit. Cooking also floats the amounts it removes off the fridge ("Out of the fridge"), so the deduction is visible — one chip at a time, about half a second apart, so a multi-ingredient cook reads as separate deductions rather than one blur. Kept in the POC per the learner's ruling.
@@ -70,11 +70,11 @@ Carried forward from `prd.md > Look and Feel` and `scope.md > Inspiration & Iden
 ## Components
 
 ### App shell and fridge door
-`index.html` + `app.js`. One screen, two columns: the fridge with **My Recipes** directly beneath it and the shopping-list card under that, beside the ingredient panel. My Recipes lives there deliberately — the learner works through the tray watching the fridge, so the button must not be a scroll away from what it acts on. **The columns are one third fridge to two thirds tray** (learner ruling, 2026-10-14): the tray is where the picking and dragging happen, so it gets the room; the fridge stays legible as a narrow column that never scrolls away. Below 860px the tray drops under the fridge instead of squeezing it. Reads and writes all go through the store.
+`index.html` + `app.js`. One screen, one stage: a 356×466 fridge standing in the middle, the category bubbles in two columns either side (percent slots on a fixed-height stage, capped at 900px so a wide window doesn't fling them into the corners), and **My Recipes** directly beneath the fridge. Bubbles are placed by `renderBubbles()` from `BUBBLE_X` and `bubbleSlotYs()`; nothing is measured at runtime, so the scene scales with the window. The fridge door is a real panel: `rotateY(-100deg)` about its left edge on a `perspective` box, resting just outside the opening rather than over the shelves (on a phone it stops edge-on at −88deg). Below 1000px the stage becomes a column — fridge first, then the bubbles as a two-up grid. Reads and writes all go through the store.
 PRD ref: `prd.md > Setting up your kitchen (first use)`, `prd.md > Adding ingredients to stock`.
 
-### Ingredient tray and categories
-The tray panel sits beside the fridge, so the fridge stays in view — and the drag stays short — while ingredients are picked. Each category is one collapsible group (`<details>`), closed on first sight, with the group's ingredient count and the open state remembered across re-renders (adding an ingredient never closes the group you are working in). Categories are seeded on the first visit and edited in the panel's "Rename or add categories" disclosure: every seeded category is offered with the learner's own name, plus their custom ones. Staples never appear in the tray.
+### Ingredient bubbles and categories
+Each category is one bubble around the fridge. One opens at a time — the others fade and blur — so the stage never becomes a wall of icons; the open state lives in `session.openBubble` and survives a re-render. Inside, every ingredient is a button: **drag** it onto the fridge (the door swings open as a drop target), **click** it for the amount prompt, or **double-click** it for a quick portion (`QUICK_AMOUNTS`: 100 g / 100 ml / 1 pc / 3 cloves / 2 slices). The single click waits 190 ms on hover-capable pointers so it can tell those two gestures apart; on touch, the tap goes straight to the prompt. Categories are seeded on the first visit and edited in the door's "Rename or add categories" disclosure: every seeded category is offered with the learner's own name, plus their custom ones. Staples never appear in a bubble.
 PRD ref: `prd.md > Setting up your kitchen (first use)`, `prd.md > Look and Feel`.
 
 ### The store (state + browser storage)
@@ -82,7 +82,7 @@ The single source of truth: `{ categories, stock, shoppingList }`. Loaded once o
 PRD ref: `prd.md > States and Boundaries` (persistence).
 
 ### Amount prompt
-A small modal shown when an icon is dragged in or tapped. Number input + the ingredient's unit; accepts positive whole numbers only; confirming adds the ingredient to stock, combining amounts if it's already there.
+A small modal shown when an icon is dragged in or tapped. Number input + the ingredient's unit; accepts positive whole numbers only; confirming adds the ingredient to stock, combining amounts if it's already there, and opens the door so the new item is visible. The double-click path is the deliberate exception: it adds a default portion without asking, and says so with a green chip rising off the fridge.
 PRD ref: `prd.md > Adding ingredients to stock`.
 
 ### Recommendation engine
@@ -165,7 +165,7 @@ None. No APIs, no keys, no accounts, no network calls at runtime. `python3 -m ht
 - **`localStorage` instead of a user-visible text file** — the browser keeps the data; the load-on-open / rewrite-on-change model is identical. The learner's own instinct, mapped to what a browser can do.
 - **No framework** — one screen and one loop; structure cost exceeds benefit at POC size. Learner-accepted with the tradeoff stated.
 - **No setup screen** — the app opens straight onto the fridge door with the seeded categories already adopted; renaming or adding them lives in the tray panel's disclosure, where the categories are actually used. The **Done** control went with the screen it belonged to.
-- **The tray sits beside the fridge, not below it** — the fridge holds its place in view while ingredients are picked, which shortens the drag and lets the learner watch the fridge change as they work. One column on narrow screens.
+- **The ingredient groups are bubbles around the fridge, not a list beside it** — the fridge holds the centre of the screen and the drag stays short, and the groups read as things you pick from rather than a dropdown to open. One column of bubbles under the fridge on narrow screens.
 - **A deliberate thumb on the scale for longer recipes** — the ranking is score × (1 + 0.1 × tracked ingredients), so a longer dinner is not beaten by a two-ingredient snack. Cost, accepted knowingly: a nearly-complete long recipe can outrank a complete short one. The displayed fit line stays honest; only the order carries the bias.
 - **Fixed ingredient tray, no custom ingredients** — the tray covers the built-in recipes, and the app opens straight onto the door, so a first visit costs nothing. (From `prd.md > Product Decisions`.)
 - **Staples rather than tracking everything** — milk, flour, salt, and sugar are assumed on hand, so the fridge holds what you'd actually run out of. Cost, accepted at the final review: staple-heavy recipes get thin (Rice Pudding reduces to rice).
@@ -186,9 +186,9 @@ None. No APIs, no keys, no accounts, no network calls at runtime. `python3 -m ht
 - One simple combining animation stays in the POC.
 - Milk, flour, salt, and sugar are staples: assumed always in the kitchen, never tracked, never scored, never shopped for (decided at the final kick-the-tires review).
 - Meat and fish join the collection — a new seeded "Meat & Fish" category, seven ingredients, and nine recipes — so the recommendations cover a real dinner (same review).
-- The app opens straight onto the fridge door: the seeded categories are adopted on the first visit, edited later in the tray panel's disclosure, and the separate setup screen and its **Done** control are gone. The ingredient tray sits beside the fridge and **My Recipes** directly under it, so the fridge stays in view while ingredients are added (same review).
+- The app opens straight onto the fridge door: the seeded categories are adopted on the first visit, edited later in the door's disclosure, and the separate setup screen and its **Done** control are gone. **My Recipes** sits directly under the fridge, so the fridge stays in view while ingredients are added (same review). A later UI pass replaced the tray with category bubbles around the fridge and made the fridge door open (2026-10-20).
 - The ranking carries a length bias — score × (1 + 0.1 × tracked ingredients) — so longer recipes are favoured; asked for at the same review, explicitly for the demo, with the consequence above noted and accepted.
-- Categories are renamed, added, and dropped from the tray panel; dropping a category whose ingredients exist leaves them visible under a trailing "Other" group rather than hiding them.
+- Categories are renamed, added, and dropped from the door's disclosure; dropping a category whose ingredients exist leaves them visible under a trailing "Other" bubble rather than hiding them.
 
 **Implementation details derived from those decisions (not separately decided):**
 
@@ -202,5 +202,5 @@ None. No APIs, no keys, no accounts, no network calls at runtime. `python3 -m ht
 **Open (carried from `prd.md > Open Questions`, all non-blocking, confirm at review or during the build):**
 
 - Re-adding an ingredient combines amounts (assumed).
-- Seeded category suggestions (Produce / Dairy / Pantry / Leftovers / Meat & Fish) are adopted on the first visit and editable in the tray panel, rather than confirmed on a setup screen (assumed, then changed at the final review).
+- Seeded category suggestions (Produce / Dairy / Pantry / Leftovers / Meat & Fish) are adopted on the first visit and editable in the door's disclosure, rather than confirmed on a setup screen (assumed, then changed at the final review).
 - The shopping-list card persists on the fridge door until its items are checked off (assumed).

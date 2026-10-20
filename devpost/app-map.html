@@ -147,11 +147,11 @@
   <h2 id="pieces">The main pieces <span class="en">— five files, no build step</span></h2>
   <ul class="pieces">
     <li><code>index.html</code><span>the single fridge-door screen — structure only, all content is rendered by app.js</span></li>
-    <li><code>styles.css</code><span>all of the look: the door layout (fridge two fifths, tray three fifths), chips, cards, and the CSS keyframe animations</span></li>
+    <li><code>styles.css</code><span>all of the look: the stage (fridge in the middle, category bubbles in two columns around it), the door's 3D swing, the cards, and the CSS keyframe animations</span></li>
     <li><code>app.js</code><span>the logic in three sections: <strong>pure logic</strong> (stock math, scoring) → <strong>store</strong> (localStorage) → <strong>UI</strong> (rendering and events)</span></li>
     <li><code>data/ingredients.js</code><span>32 built-in ingredients — 28 tracked in the tray, 4 marked <code>staple: true</code> (salt, sugar, flour, milk) that are assumed always on hand</span></li>
     <li><code>data/recipes.js</code><span>35 built-in recipes; every ingredient they call for exists in the tray</span></li>
-    <li><code>verify/slice-1..4.js</code><span>four node harnesses (117 assertions) that run the pure logic without a browser</span></li>
+    <li><code>verify/slice-1..4.js</code><span>four node harnesses (120 assertions) that run the pure logic without a browser</span></li>
   </ul>
 </section>
 
@@ -256,7 +256,7 @@
   </details>
   <details>
     <summary>The starting categories, or the fridge/tray split</summary>
-    <p>Categories: <code>SEEDED_CATEGORIES</code> in <code>app.js</code> (five: Produce, Dairy, Pantry, Leftovers, Meat &amp; Fish). Layout: <code>.door-layout</code> in <code>styles.css</code> — <code>grid-template-columns: minmax(0, 2fr) minmax(0, 3fr)</code>, fridge two fifths, tray three fifths; one column below 860&nbsp;px.</p>
+    <p>Categories: <code>SEEDED_CATEGORIES</code> in <code>app.js</code> (five: Produce, Dairy, Pantry, Leftovers, Meat &amp; Fish). Layout: <code>.fridge-stage</code> + <code>.bubble-field</code> in <code>styles.css</code> — a 664&nbsp;px stage capped at 900&nbsp;px, bubbles placed at <code>BUBBLE_X</code> (17% / 83%) and <code>bubbleSlotYs()</code>'s vertical slots; the same markup turns into a column under the fridge below 1000&nbsp;px. The door's swing is <code>.fridge[data-open="true"] .fridge-door-panel { transform: rotateY(-100deg) }</code>.</p>
   </details>
   <details>
     <summary>The buttons on a recipe card</summary>

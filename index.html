@@ -14,52 +14,75 @@
     </header>
 
     <!-- The fridge door: the app's only screen (spec > Screens and Layout).
-         The fridge sits beside the ingredient tray, and My Recipes sits
-         directly under the fridge, so adding ingredients and reading the
-         fridge never need a scroll. -->
+         One fridge in the middle, one floating bubble per ingredient
+         category around it. Tapping a bubble opens it into a grid of
+         ingredient icons; icons drag into the fridge or double-click to go
+         in. The fridge door swings open when tapped, so the stock is
+         something you look inside rather than a list you scan. -->
     <main id="fridge-door" class="fridge-door">
-      <div class="door-layout">
-        <div class="door-main">
-          <section id="fridge" class="fridge" aria-label="Fridge">
-            <div class="fridge-handle" aria-hidden="true"></div>
-            <p id="fridge-empty-note" class="fridge-empty-note">Your fridge is empty &mdash; pick a category and tap an ingredient.</p>
-            <div id="fridge-stock" class="fridge-stock"></div>
-          </section>
+      <div id="fridge-stage" class="fridge-stage">
+        <!-- Bubbles are absolutely positioned here by app.js, in two
+             columns either side of the fridge. -->
+        <div id="bubble-field" class="bubble-field" aria-label="Ingredient bubbles"></div>
+
+        <div class="fridge-anchor">
+          <div id="fridge" class="fridge" data-open="false">
+            <div class="fridge-cabinet">
+              <div id="fridge-interior" class="fridge-interior" aria-label="Inside the fridge">
+                <div id="fridge-stock" class="fridge-stock"></div>
+                <p id="fridge-empty-note" class="fridge-empty-note">
+                  Nothing in here yet.<br>
+                  <span class="fridge-empty-hint">Open a bubble and drag something in.</span>
+                </p>
+                <button id="fridge-close" type="button" class="fridge-close">Close the door</button>
+              </div>
+
+              <button id="fridge-door-panel" type="button" class="fridge-door-panel"
+                      aria-expanded="false" aria-controls="fridge-interior">
+                <span class="door-plate" aria-hidden="true">FRIDGE</span>
+                <span class="door-seam" aria-hidden="true"></span>
+                <span class="door-handle door-handle-top" aria-hidden="true"></span>
+                <span class="door-handle" aria-hidden="true"></span>
+                <span class="door-note">
+                  <span class="door-magnet" aria-hidden="true"></span>
+                  <span id="door-count" class="door-count">0 items</span>
+                  <span id="door-hint" class="door-hint">tap to open</span>
+                </span>
+              </button>
+            </div>
+            <div class="fridge-feet" aria-hidden="true"><span></span><span></span></div>
+          </div>
 
           <div class="fridge-actions">
             <button id="my-recipes-button" type="button" class="btn btn-primary btn-lg">My Recipes</button>
           </div>
-
-          <!-- Shopping list card (spec > Components > Shopping list card) -->
-          <section id="shopping-list" class="shopping-list hidden" aria-label="Shopping list">
-            <h2 class="shopping-title">Shopping list</h2>
-            <ul id="shopping-items" class="shop-items"></ul>
-          </section>
         </div>
-
-        <!-- The ingredient tray: one collapsible group per category
-             (spec > Components > Ingredient tray). -->
-        <aside class="tray-panel" aria-label="Ingredient tray">
-          <div class="tray-head">
-            <h2 class="tray-title">Your ingredients</h2>
-            <p class="tray-hint">Tap a category, then tap an ingredient &mdash; or drag it into the fridge.</p>
-          </div>
-          <div id="ingredient-tray" class="ingredient-tray"></div>
-
-          <!-- Categories live here now instead of on a setup screen: the app
-               opens straight onto the door (spec > Components > Categories). -->
-          <details id="categories-panel" class="categories-panel">
-            <summary class="categories-summary">Rename or add categories</summary>
-            <ul id="seed-list" class="seed-list"></ul>
-            <form id="add-category-form" class="add-category" autocomplete="off">
-              <input id="new-category-name" type="text" maxlength="24" placeholder="Add your own&hellip;" aria-label="New category name">
-              <button type="submit" class="btn btn-small">Add</button>
-            </form>
-            <p id="category-error" class="category-error hidden" role="alert"></p>
-            <button id="confirm-categories" type="button" class="btn btn-primary btn-small">Save categories</button>
-          </details>
-        </aside>
       </div>
+
+      <!-- Shopping list card (spec > Components > Shopping list card) -->
+      <section id="shopping-list" class="shopping-list hidden" aria-label="Shopping list">
+        <h2 class="shopping-title">Shopping list</h2>
+        <ul id="shopping-items" class="shop-items"></ul>
+      </section>
+
+      <!-- Categories still live on the door, in a disclosure (spec >
+           Components > Categories), so the app opens straight onto the
+           fridge and never asks for setup first. -->
+      <div class="door-footer">
+        <p class="stage-hint">Open a bubble &middot; drag an icon into the fridge, or double-click it for a portion</p>
+        <details id="categories-panel" class="categories-panel">
+          <summary class="categories-summary">Rename or add categories</summary>
+          <ul id="seed-list" class="seed-list"></ul>
+          <form id="add-category-form" class="add-category" autocomplete="off">
+            <input id="new-category-name" type="text" maxlength="24" placeholder="Add your own&hellip;" aria-label="New category name">
+            <button type="submit" class="btn btn-small">Add</button>
+          </form>
+          <p id="category-error" class="category-error hidden" role="alert"></p>
+          <button id="confirm-categories" type="button" class="btn btn-primary btn-small">Save categories</button>
+        </details>
+      </div>
+
+      <p id="sr-status" class="sr-only" role="status" aria-live="polite"></p>
     </main>
   </div>
 
@@ -103,6 +126,10 @@
   <!-- "Out of the fridge" float (spec > Components > Commit actions): the
        amounts cooking takes out of the fridge rise off it and evaporate. -->
   <div id="remove-float" class="remove-float hidden" aria-hidden="true"></div>
+
+  <!-- Quick add: double-clicking an ingredient icon puts a portion straight
+       into the fridge, and this chip says what went in. -->
+  <div id="add-float" class="add-float hidden" aria-hidden="true"></div>
 
   <!-- Amount prompt (spec > Components > Amount prompt) -->
   <div id="amount-prompt" class="prompt-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="prompt-title">

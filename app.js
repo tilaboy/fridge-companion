@@ -392,11 +392,15 @@
   var session = {
     promptIngredientId: null,
     customCounter: 0,
-    openGroups: {} // which tray categories the learner has opened
+    openBubble: null, // the category bubble currently swelled open
+    clickTimer: null, // disambiguates click (prompt) from double-click (quick add)
+    clickItemId: null
   };
   var els = {};
   var openPick = null; // the recommendation currently centered
   var removeFloatTimer = null; // clears the "out of the fridge" float
+  var addFloatTimer = null; // clears the quick-add chip
+  var doorOpen = false; // is the fridge door swung open?
 
   function init() {
     els.seedList = document.getElementById('seed-list');
@@ -404,9 +408,14 @@
     els.confirmCategories = document.getElementById('confirm-categories');
     els.categoryError = document.getElementById('category-error');
     els.fridge = document.getElementById('fridge');
+    els.fridgeDoor = document.getElementById('fridge-door-panel');
+    els.fridgeInterior = document.getElementById('fridge-interior');
+    els.fridgeClose = document.getElementById('fridge-close');
     els.fridgeEmptyNote = document.getElementById('fridge-empty-note');
     els.fridgeStock = document.getElementById('fridge-stock');
-    els.tray = document.getElementById('ingredient-tray');
+    els.doorCount = document.getElementById('door-count');
+    els.doorHint = document.getElementById('door-hint');
+    els.bubbleField = document.getElementById('bubble-field');
     els.myRecipesButton = document.getElementById('my-recipes-button');
     els.recSection = document.getElementById('recommendations');
     els.recCards = document.getElementById('rec-cards');
@@ -436,6 +445,8 @@
     els.combineDish = document.getElementById('combine-dish');
     els.combineLine = document.getElementById('combine-line');
     els.removeFloat = document.getElementById('remove-float');
+    els.addFloat = document.getElementById('add-float');
+    els.srStatus = document.getElementById('sr-status');
 
     // A first visit adopts the seeded categories and opens straight onto the
     // fridge door — no setup screen in front of the app.
@@ -452,6 +463,8 @@
     els.generateList.addEventListener('click', onGenerateList);
     els.promptForm.addEventListener('submit', onSubmitAmount);
     els.promptCancel.addEventListener('click', closePrompt);
+    els.fridgeDoor.addEventListener('click', function () { setDoor(true); });
+    els.fridgeClose.addEventListener('click', function () { setDoor(false); });
     els.prompt.addEventListener('click', function (e) {
       if (e.target === els.prompt) closePrompt();
     });
@@ -460,9 +473,11 @@
     });
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Escape') return;
-      // Close the top-most layer first.
+      // Close the top-most layer first: prompt, then recipe, then bubble, then door.
       if (!els.prompt.classList.contains('hidden')) { closePrompt(); return; }
-      if (!els.recipeView.classList.contains('hidden')) closeRecipeView();
+      if (!els.recipeView.classList.contains('hidden')) { closeRecipeView(); return; }
+      if (session.openBubble) { closeBubbles(); return; }
+      if (doorOpen) setDoor(false);
     });
     wireFridgeDrop();
 
@@ -554,14 +569,23 @@
     renderAll();
   }
 
-  /* ---------- the fridge door ---------- */
+  /* ---------- the fridge ---------- */
 
   function renderAll() {
     renderFridge();
     renderShoppingList();
-    renderTray();
+    renderBubbles();
   }
 
+  function trackedStockIds() {
+    return Object.keys(state.stock).filter(function (id) {
+      return !isStaple(id) && (state.stock[id] || 0) > 0;
+    });
+  }
+
+  /* The inside of the fridge: one shelf per category, the food standing on
+   * it with its amount underneath. The door note carries the count, so the
+   * shut fridge still answers "is there anything in there?". */
   function renderFridge() {
     els.fridgeStock.innerHTML = '';
     var any = false;
@@ -570,28 +594,308 @@
       if (stocked.length === 0) return;
       any = true;
 
-      var section = document.createElement('section');
-      section.className = 'fridge-group';
-      var h = document.createElement('h3');
-      h.className = 'fridge-group-title';
-      h.textContent = g.category.name;
-      section.appendChild(h);
+      var shelf = document.createElement('section');
+      shelf.className = 'shelf';
+
+      var label = document.createElement('span');
+      label.className = 'shelf-label';
+      label.textContent = g.category.name;
+      shelf.appendChild(label);
 
       var row = document.createElement('div');
-      row.className = 'fridge-row';
+      row.className = 'shelf-row';
       stocked.forEach(function (ing) {
-        var chip = document.createElement('span');
-        chip.className = 'stock-chip';
-        chip.innerHTML =
-          '<span class="stock-emoji">' + ing.emoji + '</span>' +
-          '<span class="stock-amount">' + state.stock[ing.id] + ' ' + escapeHtml(ing.unit) + '</span>' +
-          '<span class="stock-name">' + escapeHtml(ing.name) + '</span>';
-        row.appendChild(chip);
+        var held = state.stock[ing.id];
+        var item = document.createElement('span');
+        item.className = 'stock-item';
+        item.title = ing.name + ' \u2014 ' + held + ' ' + ing.unit;
+        item.innerHTML =
+          '<span class="stock-emoji" aria-hidden="true">' + ing.emoji + '</span>' +
+          '<span class="stock-amount">' +
+            (countableUnit(ing.unit) ? '\u00d7' + held : held + ' ' + escapeHtml(ing.unit)) +
+          '</span>';
+        item.setAttribute('aria-label', ing.name + ', ' + held + ' ' + ing.unit);
+        row.appendChild(item);
       });
-      section.appendChild(row);
-      els.fridgeStock.appendChild(section);
+
+      shelf.appendChild(row);
+      els.fridgeStock.appendChild(shelf);
     });
+
     els.fridgeEmptyNote.classList.toggle('hidden', any);
+
+    var n = trackedStockIds().length;
+    els.doorCount.textContent = n === 0 ? 'empty' : (n === 1 ? '1 item' : n + ' items');
+    if (doorOpen) els.fridgeEmptyNote.classList.toggle('hidden', any);
+  }
+
+  /* "pcs" and friends read as a count (×3), weights and volumes as 200 g. */
+  function countableUnit(unit) {
+    return unit === 'pcs' || unit === 'cloves' || unit === 'slices' || unit === 'bunch';
+  }
+
+  /* ---------- the door ---------- */
+
+  function setDoor(open) {
+    doorOpen = open;
+    els.fridge.setAttribute('data-open', open ? 'true' : 'false');
+    els.fridgeDoor.setAttribute('aria-expanded', open ? 'true' : 'false');
+    els.fridgeInterior.setAttribute('aria-hidden', open ? 'false' : 'true');
+    els.doorHint.textContent = open ? 'door open' : 'tap to open';
+    if (open) els.fridgeEmptyNote.classList.toggle('hidden', trackedStockIds().length > 0);
+  }
+
+  /* ---------- the bubbles ---------- */
+
+  /* Two columns either side of the fridge, their vertical slots spread over
+   * the stage. Percentages, so the scene scales with the panel without a
+   * single measurement; the media query at 1000px turns the same markup into
+   * a plain grid under the fridge. */
+  var BUBBLE_X = { left: 17, right: 83 };
+
+  /* A soft tint per bubble, so the groups read apart at a glance. Purely
+   * decorative and cycled by position, so user-added categories get one too. */
+  var BUBBLE_TINTS = ['#f9d6b0', '#cfe6c6', '#f6e3a2', '#c8ddf3', '#f3cccc', '#dccfef'];
+
+  function bubbleSlotYs(count) {
+    if (count <= 1) return [0.5];
+    var out = [];
+    for (var i = 0; i < count; i++) out.push(0.24 + (i / (count - 1)) * 0.52);
+    return out;
+  }
+
+  function categoryGroups() {
+    return groupTrayByCategory(state.categories)
+      .map(function (g) {
+        return {
+          category: g.category,
+          items: g.items.filter(function (ing) { return !isStaple(ing.id); })
+        };
+      })
+      .filter(function (g) { return g.items.length > 0; });
+  }
+
+  function renderBubbles() {
+    els.bubbleField.innerHTML = '';
+    var groups = categoryGroups();
+    var columns = { left: [], right: [] };
+    groups.forEach(function (g, i) {
+      columns[i % 2 === 0 ? 'left' : 'right'].push(g);
+    });
+
+    var tintIndex = 0;
+    ['left', 'right'].forEach(function (side) {
+      var ys = bubbleSlotYs(columns[side].length);
+      columns[side].forEach(function (g, i) {
+        els.bubbleField.appendChild(
+          makeBubble(g, BUBBLE_X[side], ys[i] * 100, BUBBLE_TINTS[tintIndex++ % BUBBLE_TINTS.length])
+        );
+      });
+    });
+    els.bubbleField.classList.toggle('is-focusing', !!session.openBubble);
+  }
+
+  function makeBubble(g, xPct, yPct, tint) {
+    var stockedCount = g.items.filter(function (ing) { return (state.stock[ing.id] || 0) > 0; }).length;
+
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.dataset.categoryId = g.category.id;
+    bubble.style.left = xPct + '%';
+    bubble.style.top = yPct + '%';
+    if (tint) bubble.style.setProperty('--tint', tint);
+    // the open card is only as tall as its rows of icons
+    var rows = Math.ceil(g.items.length / 3);
+    bubble.style.setProperty('--open-h', Math.min(306, 66 + rows * 54) + 'px');
+
+    var face = document.createElement('button');
+    face.type = 'button';
+    face.className = 'bubble-face';
+    face.id = 'bubble-face-' + g.category.id;
+    face.setAttribute('aria-expanded', 'false');
+    face.setAttribute('aria-controls', 'bubble-items-' + g.category.id);
+    face.setAttribute(
+      'aria-label',
+      g.category.name + ', ' + g.items.length + ' ingredients' +
+      (stockedCount > 0 ? ', ' + stockedCount + ' already in the fridge' : '')
+    );
+
+    var peeks = g.items.slice(0, 3).map(function (ing) {
+      return '<span>' + ing.emoji + '</span>';
+    }).join('');
+    face.innerHTML =
+      '<span class="bubble-peek" aria-hidden="true">' + peeks + '</span>' +
+      '<span class="bubble-name">' + escapeHtml(g.category.name) + '</span>' +
+      '<span class="bubble-count">' +
+        (stockedCount > 0 ? stockedCount + '/' + g.items.length : String(g.items.length)) +
+      '</span>' +
+      '<span class="bubble-close-mark" aria-hidden="true">\u00d7</span>';
+    face.addEventListener('click', function () { toggleBubble(g.category.id); });
+    bubble.appendChild(face);
+
+    var panel = document.createElement('div');
+    panel.className = 'bubble-items';
+    panel.id = 'bubble-items-' + g.category.id;
+    panel.hidden = true;
+    g.items.forEach(function (ing) { panel.appendChild(makePick(ing)); });
+    bubble.appendChild(panel);
+
+    setBubbleOpen(bubble, session.openBubble === g.category.id);
+    return bubble;
+  }
+
+  function setBubbleOpen(bubble, open) {
+    bubble.classList.toggle('is-open', open);
+    var face = bubble.querySelector('.bubble-face');
+    var panel = bubble.querySelector('.bubble-items');
+    if (face) face.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (panel) panel.hidden = !open;
+  }
+
+  /* One bubble at a time: the open one swells and the rest sink back, so the
+   * stage never turns into a wall of icons. The DOM is patched in place
+   * rather than re-rendered, or the swell would be lost. */
+  function toggleBubble(categoryId) {
+    var openId = session.openBubble === categoryId ? null : categoryId;
+    session.openBubble = openId;
+    els.bubbleField.classList.toggle('is-focusing', !!openId);
+    var focusWasInside = els.bubbleField.contains(document.activeElement);
+    Array.prototype.forEach.call(els.bubbleField.children, function (bubble) {
+      setBubbleOpen(bubble, bubble.dataset.categoryId === openId);
+    });
+    // Closing swallows the icons that held the caret: hand it back to the
+    // bubble's own button rather than dropping focus on <body>.
+    if (!openId && focusWasInside) {
+      var face = document.getElementById('bubble-face-' + categoryId);
+      if (face) face.focus({ preventScroll: true });
+    }
+  }
+
+  function closeBubbles() {
+    session.openBubble = null;
+    els.bubbleField.classList.remove('is-focusing');
+    Array.prototype.forEach.call(els.bubbleField.children, function (bubble) {
+      setBubbleOpen(bubble, false);
+    });
+  }
+
+  function makePick(ing) {
+    var held = state.stock[ing.id] || 0;
+
+    var pick = document.createElement('button');
+    pick.type = 'button';
+    pick.className = 'pick';
+    pick.dataset.ingredientId = ing.id;
+    pick.draggable = true;
+    pick.setAttribute('aria-label', 'Add ' + ing.name +
+      (held > 0 ? ' (you have ' + held + ' ' + ing.unit + ')' : ''));
+    pick.title = ing.name + (held > 0 ? ' — ' + held + ' ' + ing.unit + ' in the fridge' : '');
+    pick.innerHTML =
+      '<span class="pick-emoji" aria-hidden="true">' + ing.emoji + '</span>' +
+      '<span class="pick-name">' + escapeHtml(ing.name) + '</span>' +
+      (held > 0 ? '<span class="pick-have" aria-hidden="true">' + held + '</span>' : '');
+
+    // One click asks how much; a double click takes a portion straight in.
+    pick.addEventListener('click', function () { onPickClick(ing); });
+    pick.addEventListener('dragstart', function (e) {
+      e.dataTransfer.setData('text/plain', ing.id);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    return pick;
+  }
+
+  /* A mouse can mean either gesture, so the single click waits 190ms to see
+   * whether a second one is coming. Touch has no double click, so the tap
+   * goes straight to the amount prompt. */
+  var HOVER_CAPABLE = typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    : true;
+
+  function onPickClick(ing) {
+    if (!HOVER_CAPABLE) { openPrompt(ing.id); return; }
+    if (session.clickTimer && session.clickItemId === ing.id) {
+      clearTimeout(session.clickTimer);
+      session.clickTimer = null;
+      session.clickItemId = null;
+      quickAdd(ing.id);
+      return;
+    }
+    clearTimeout(session.clickTimer);
+    session.clickItemId = ing.id;
+    session.clickTimer = setTimeout(function () {
+      session.clickTimer = null;
+      session.clickItemId = null;
+      openPrompt(ing.id);
+    }, 190);
+  }
+
+  /* One sensible portion per unit, so the double-click path never asks. */
+  var QUICK_AMOUNTS = { g: 100, ml: 100, pcs: 1, cloves: 3, slices: 2, bunch: 1 };
+
+  function defaultAmount(ing) {
+    return QUICK_AMOUNTS[ing.unit] || 1;
+  }
+
+  function quickAdd(ingredientId) {
+    var ing = getIngredient(ingredientId);
+    if (!ing) return;
+    var amount = defaultAmount(ing);
+    state = addToStock(state, ingredientId, amount);
+    saveState(state);
+    renderAll();
+    if (!doorOpen) setDoor(true); // show it land
+    playAddFloat(ing, amount);
+    announce(ing.name + ' +' + amount + ' ' + ing.unit + ' into the fridge');
+    // Re-rendering rebuilt the bubble: put the caret back on the icon.
+    var again = els.bubbleField.querySelector('.pick[data-ingredient-id="' + ingredientId + '"]');
+    if (again) again.focus({ preventScroll: true });
+  }
+
+  function announce(text) {
+    if (els.srStatus) els.srStatus.textContent = text;
+  }
+
+  /* The quick add is silent otherwise, so a chip says what went in. */
+  function playAddFloat(ing, amount) {
+    clearTimeout(addFloatTimer);
+    els.addFloat.innerHTML = '';
+    var rect = els.fridge.getBoundingClientRect();
+
+    var chip = document.createElement('span');
+    chip.className = 'add-chip';
+    chip.innerHTML =
+      '<span class="add-emoji">' + ing.emoji + '</span>' +
+      '<span class="add-name">' + escapeHtml(ing.name) + '</span>' +
+      '<span class="add-amount">+' + amount + ' ' + escapeHtml(ing.unit) + '</span>';
+    chip.style.left = (rect.left + rect.width / 2) + 'px';
+    chip.style.top = (rect.top + rect.height * 0.42) + 'px';
+    els.addFloat.appendChild(chip);
+    els.addFloat.classList.remove('hidden');
+
+    addFloatTimer = setTimeout(function () {
+      els.addFloat.classList.add('hidden');
+      els.addFloat.innerHTML = '';
+    }, 1450);
+  }
+
+  /* Dragging an icon onto the fridge opens the door to show where it goes,
+   * then asks for the amount — the drag and the tap land in the same place. */
+  function wireFridgeDrop() {
+    els.fridge.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      els.fridge.classList.add('drop-target');
+      if (!doorOpen) setDoor(true);
+    });
+    els.fridge.addEventListener('dragleave', function (e) {
+      if (els.fridge.contains(e.relatedTarget)) return;
+      els.fridge.classList.remove('drop-target');
+    });
+    els.fridge.addEventListener('drop', function (e) {
+      e.preventDefault();
+      els.fridge.classList.remove('drop-target');
+      var id = e.dataTransfer.getData('text/plain');
+      if (getIngredient(id)) openPrompt(id);
+    });
   }
 
   /* ---------- shopping list card (spec > Components > Shopping list card) ---------- */
@@ -626,75 +930,6 @@
     state = buyShoppingListItem(state, ingredientId);
     saveState(state);
     renderAll();
-  }
-
-  /* One collapsible group per category, all closed to start with so the
-   * fridge stays the focus. Which groups are open is remembered across
-   * re-renders, so adding an ingredient never closes the group you are
-   * working in (spec > Components > Ingredient tray). */
-  function renderTray() {
-    els.tray.innerHTML = '';
-    groupTrayByCategory(state.categories).forEach(function (g) {
-      // Staples never appear in the tray: they are assumed on hand.
-      var items = g.items.filter(function (ing) { return !isStaple(ing.id); });
-      if (items.length === 0) return;
-
-      var group = document.createElement('details');
-      group.className = 'tray-group';
-      group.dataset.categoryId = g.category.id;
-      group.open = !!session.openGroups[g.category.id];
-      group.addEventListener('toggle', function () {
-        session.openGroups[g.category.id] = group.open;
-      });
-
-      var head = document.createElement('summary');
-      head.className = 'tray-group-head';
-      head.innerHTML =
-        '<span class="tray-chevron" aria-hidden="true"></span>' +
-        '<span class="tray-group-name">' + escapeHtml(g.category.name) + '</span>' +
-        '<span class="tray-group-count">' + items.length + '</span>';
-      group.appendChild(head);
-
-      var row = document.createElement('div');
-      row.className = 'tray-row';
-      items.forEach(function (ing) { row.appendChild(makeTile(ing)); });
-      group.appendChild(row);
-      els.tray.appendChild(group);
-    });
-  }
-
-  function makeTile(ing) {
-    var tile = document.createElement('button');
-    tile.type = 'button';
-    tile.className = 'tile';
-    tile.draggable = true;
-    tile.setAttribute('aria-label', 'Add ' + ing.name);
-    tile.innerHTML =
-      '<span class="tile-emoji">' + ing.emoji + '</span>' +
-      '<span class="tile-name">' + escapeHtml(ing.name) + '</span>';
-    // Tap does the same thing as drag (spec: the touch-friendly path).
-    tile.addEventListener('click', function () { openPrompt(ing.id); });
-    tile.addEventListener('dragstart', function (e) {
-      e.dataTransfer.setData('text/plain', ing.id);
-      e.dataTransfer.effectAllowed = 'copy';
-    });
-    return tile;
-  }
-
-  function wireFridgeDrop() {
-    els.fridge.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      els.fridge.classList.add('drop-target');
-    });
-    els.fridge.addEventListener('dragleave', function () {
-      els.fridge.classList.remove('drop-target');
-    });
-    els.fridge.addEventListener('drop', function (e) {
-      e.preventDefault();
-      els.fridge.classList.remove('drop-target');
-      var id = e.dataTransfer.getData('text/plain');
-      if (getIngredient(id)) openPrompt(id);
-    });
   }
 
   /* ---------- recommendations (spec > Components > Recommendation engine) ---------- */
@@ -1016,6 +1251,7 @@
     saveState(state);
     closePrompt();
     renderAll();
+    if (!doorOpen) setDoor(true); // show it land
   }
 
   /* ================================================================== *

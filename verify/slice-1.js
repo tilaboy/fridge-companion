@@ -122,37 +122,52 @@ check('staples are declared in the ingredient data',
 check('ordinary ingredients are not staples',
   !app.isStaple('egg') && !app.isStaple('butter') && !app.isStaple('chicken'));
 
-/* --- the door's shape: one screen, the tray beside the fridge (spec > Look
- *     and Feel). Layout is visual, so this reads the markup itself. --- */
+/* --- the door's shape: one screen, a fridge ringed by ingredient bubbles
+ *     (spec > Look and Feel). Layout is visual, so this reads the markup,
+ *     the stylesheet, and the rendering code itself. --- */
 var html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+var cssSrc = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
+var appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
 check('the setup screen and the Done control are gone — the app opens on the door',
   html.indexOf('id="setup-screen"') === -1 && html.indexOf('id="done-button"') === -1 &&
   html.indexOf('id="first-use-hint"') === -1);
-check('the ingredient tray lives in a panel beside the fridge, not below it',
-  html.indexOf('class="door-layout"') !== -1 &&
-  html.indexOf('class="door-main"') !== -1 &&
-  html.indexOf('class="tray-panel"') !== -1 &&
-  html.indexOf('id="ingredient-tray"') !== -1);
+check('the fridge stands on its own stage, and the dropdown tray is gone',
+  html.indexOf('id="fridge-stage"') !== -1 &&
+  html.indexOf('id="bubble-field"') !== -1 &&
+  html.indexOf('id="fridge"') !== -1 &&
+  html.indexOf('tray-panel') === -1 &&
+  html.indexOf('id="ingredient-tray"') === -1);
 check('My Recipes sits under the fridge, above the shopping list',
   html.indexOf('id="fridge"') < html.indexOf('id="my-recipes-button"') &&
   html.indexOf('id="my-recipes-button"') < html.indexOf('id="shopping-list"'));
-check('categories are edited in the tray panel instead of on a first screen',
+check('categories are edited on the door itself instead of on a first screen',
   html.indexOf('id="categories-panel"') !== -1 && html.indexOf('id="seed-list"') !== -1);
 
-/* The fridge and the tray share the door row: the tray stays in the majority
- * because that is where picking happens, but the fridge got a little wider
- * at final-review round three — two fifths of the row to the fridge, three
- * fifths to the tray (spec > Look and Feel). */
-var cssSrc = fs.readFileSync(path.join(__dirname, '..', 'styles.css'), 'utf8');
-check('the fridge takes two fifths of the row and the tray three fifths',
-  /\.door-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(0,\s*3fr\)/
-    .test(cssSrc));
-
-var appSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-check('the tray is built as collapsible category groups whose open state survives a re-render',
-  appSrc.indexOf("createElement('details')") !== -1 &&
-  appSrc.indexOf("'tray-group-head'") !== -1 &&
-  appSrc.indexOf('session.openGroups') !== -1);
+/* The bubbles hang in two columns either side of the fridge. Their slots are
+ * percentages on a fixed-height stage, so the whole scene scales with the
+ * panel and nothing has to be measured at runtime. */
+check('the ingredient groups are absolutely placed bubbles, two columns around the fridge',
+  /\.bubble-field\s*\{[^}]*position:\s*absolute/.test(cssSrc) &&
+  /\.bubble\s*\{[^}]*position:\s*absolute/.test(cssSrc) &&
+  /translate:\s*-50%\s+-50%/.test(cssSrc) &&
+  /BUBBLE_X\s*=\s*\{\s*left:\s*[\d.]+,\s*right:\s*[\d.]+\s*\}/.test(appSrc) &&
+  appSrc.indexOf('bubbleSlotYs') !== -1);
+check('the fridge door swings open on the tap rather than swapping screens',
+  /\.fridge\[data-open="true"\]\s+\.fridge-door-panel\s*\{[^}]*rotateY\(-10\ddeg\)/.test(cssSrc) &&
+  appSrc.indexOf('function setDoor(') !== -1 &&
+  appSrc.indexOf("els.fridge.setAttribute('data-open'") !== -1);
+check('one bubble opens at a time, and its ingredients become draggable icon buttons',
+  appSrc.indexOf('function toggleBubble(') !== -1 &&
+  appSrc.indexOf('session.openBubble') !== -1 &&
+  appSrc.indexOf("panel.className = 'bubble-items'") !== -1 &&
+  /\.pick\s*\{[^}]*cursor:\s*grab/.test(cssSrc) &&
+  appSrc.indexOf("pick.draggable = true") !== -1);
+check('a double click puts a portion straight in, a single click still asks',
+  appSrc.indexOf('QUICK_AMOUNTS') !== -1 &&
+  appSrc.indexOf('function quickAdd(') !== -1 &&
+  appSrc.indexOf('function defaultAmount(') !== -1 &&
+  appSrc.indexOf('session.clickTimer') !== -1);
 
 /* Every element the app looks up must exist in the page — the guard that
  * catches a renamed or deleted id after a layout change. */
@@ -163,6 +178,16 @@ while ((idMatch = idRe.exec(appSrc)) !== null) wanted.push(idMatch[1]);
 var missingIds = wanted.filter(function (id) { return html.indexOf('id="' + id + '"') === -1; });
 check('every element the app looks up exists in the page (' + wanted.length + ' ids)',
   missingIds.length === 0, missingIds.join(', '));
+
+/* A duplicate id is how the screen and the door once shared one: the door's
+ * tap handler landed on <main> and every click anywhere opened the fridge. */
+var allIds = [];
+var anyIdRe = /id="([^"]+)"/g;
+var anyIdMatch;
+while ((anyIdMatch = anyIdRe.exec(html)) !== null) allIds.push(anyIdMatch[1]);
+var duplicateIds = allIds.filter(function (id, i) { return allIds.indexOf(id) !== i; });
+check('no id appears twice in the page (' + allIds.length + ' ids)',
+  duplicateIds.length === 0, duplicateIds.join(', '));
 
 /* --- bad storage falls back to first use (spec > Important Failure Modes) --- */
 storage.setItem(app.STORAGE_KEY, '{not json');
