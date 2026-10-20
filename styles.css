@@ -208,7 +208,18 @@ body {
   gap: 26px;
 }
 
-.bubble-field { position: absolute; inset: 0; z-index: 5; }
+/* The field spans the whole stage so the bubbles can be placed by percentage,
+ * but it is an empty layer: it must not swallow the pointer. Left clickable it
+ * sat over the fridge and ate every tap on the door, the close button and
+ * every dragged ingredient. Only the bubbles themselves take the pointer. */
+.bubble-field {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.bubble { pointer-events: auto; }
 
 /* ---------- the fridge ---------- */
 
@@ -658,6 +669,8 @@ body {
   font: inherit;
   color: var(--ink);
   cursor: grab;
+  user-select: none;
+  -webkit-user-drag: none;
   transition: transform .13s ease, box-shadow .13s ease, background .13s ease;
 }
 
@@ -702,6 +715,40 @@ body {
   border-radius: 999px;
   padding: 0 4px;
 }
+
+/* ---------- the dragged icon ---------- */
+
+/* A small chip that follows the pointer while an icon is on its way to the
+ * fridge. The native drag image is not used because the drag is a pointer
+ * drag (see app.js), so the chip is the only thing that says "you are
+ * carrying this". */
+.drag-ghost {
+  position: fixed;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 7px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--card-edge);
+  box-shadow: 0 14px 24px -12px rgba(50, 62, 74, .55);
+  transform: translate(-50%, -50%) rotate(-3deg) scale(1.04);
+  pointer-events: none;
+  opacity: 0;
+  animation: fdc-ghost-in .13s ease forwards;
+}
+
+.drag-ghost-emoji { font-size: 20px; line-height: 1; }
+.drag-ghost-name { font-size: 11px; color: var(--ink-soft); }
+
+@keyframes fdc-ghost-in {
+  from { opacity: 0; transform: translate(-50%, -50%) rotate(-6deg) scale(.9); }
+  to   { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1.04); }
+}
+
+/* nothing inside the page should hijack the drag with a text selection */
+body.is-dragging { cursor: grabbing; user-select: none; }
 
 /* ---------- the door footer (categories + shopping list) ---------- */
 

@@ -140,7 +140,7 @@
 
 <section aria-labelledby="what">
   <h2 id="what">What this app is</h2>
-  <p>Fridge Door Companion keeps your whole kitchen on one screen. A <strong>fridge</strong> sits on the left, the <strong>ingredient tray</strong> beside it, and <strong>My Recipes</strong> directly under the fridge. You tap or drag ingredients into the fridge and enter how much you have; press <em>My Recipes</em> and the app ranks its built-in recipes against your stock, showing the best 2–3 picks with a “You have 4/5 · Missing: 1” fit line. Open a pick and <em>Cook this</em> to deduct what you used — when the recipe is missing something, <em>Generate the shopping list</em> also appears, and you check items off as you buy them. Everything is stored in your browser’s <code>localStorage</code> — there is no backend and no account.</p>
+  <p>Fridge Door Companion keeps your whole kitchen on one screen. A <strong>fridge</strong> stands in the middle with one floating <strong>bubble</strong> per category hung either side, and <strong>My Recipes</strong> directly under the fridge. Tap the fridge to swing its door open (and tap it again to shut it); tap a bubble to swell it into that category’s icons, then tap, press-and-drag, or double-click an icon to put it in. You enter how much you have; press <em>My Recipes</em> and the app ranks its built-in recipes against your stock, showing the best 2–3 picks with a “You have 4/5 · Missing: 1” fit line. Open a pick and <em>Cook this</em> to deduct what you used — when the recipe is missing something, <em>Generate the shopping list</em> also appears, and you check items off as you buy them. Everything is stored in your browser’s <code>localStorage</code> — there is no backend and no account.</p>
 </section>
 
 <section aria-labelledby="pieces">
@@ -151,7 +151,7 @@
     <li><code>app.js</code><span>the logic in three sections: <strong>pure logic</strong> (stock math, scoring) → <strong>store</strong> (localStorage) → <strong>UI</strong> (rendering and events)</span></li>
     <li><code>data/ingredients.js</code><span>32 built-in ingredients — 28 tracked in the tray, 4 marked <code>staple: true</code> (salt, sugar, flour, milk) that are assumed always on hand</span></li>
     <li><code>data/recipes.js</code><span>35 built-in recipes; every ingredient they call for exists in the tray</span></li>
-    <li><code>verify/slice-1..4.js</code><span>four node harnesses (120 assertions) that run the pure logic without a browser</span></li>
+    <li><code>verify/slice-1..4.js</code><span>four node harnesses (123 assertions) that run the pure logic without a browser</span></li>
   </ul>
 </section>
 
@@ -255,7 +255,7 @@
     <p><code>data/recipes.js</code>. Each recipe needs an id, name, dish emoji, ingredients (with amounts), and steps. The fit line, the green/red checklist, the shopping-list quantities, and the deduction all read from this one shape.</p>
   </details>
   <details>
-    <summary>The starting categories, or the fridge/tray split</summary>
+    <summary>The starting categories, the stage layout, or how the door swings</summary>
     <p>Categories: <code>SEEDED_CATEGORIES</code> in <code>app.js</code> (five: Produce, Dairy, Pantry, Leftovers, Meat &amp; Fish). Layout: <code>.fridge-stage</code> + <code>.bubble-field</code> in <code>styles.css</code> — a 664&nbsp;px stage capped at 900&nbsp;px, bubbles placed at <code>BUBBLE_X</code> (17% / 83%) and <code>bubbleSlotYs()</code>'s vertical slots; the same markup turns into a column under the fridge below 1000&nbsp;px. The door's swing is <code>.fridge[data-open="true"] .fridge-door-panel { transform: rotateY(-100deg) }</code>.</p>
   </details>
   <details>

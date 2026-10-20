@@ -12,7 +12,7 @@ Fridge Door Companion is a single web page that runs in your browser. There is n
 - **Your kitchen lives in the browser's own storage** (a feature called `localStorage`). Think of it as a text file the browser keeps for this app: the app reads it when it opens and rewrites it whenever something changes. Two honest caveats: it's per-browser (Chrome's fridge isn't Firefox's fridge), and clearing browser data erases it.
 - **The recipes and the ingredient tray are built-in data files** that ship with the app — three dozen recipes, the full icon set the matching needs, and the staples list.
 - **A few staples are assumed to be in your kitchen** (milk, flour, salt, sugar). They are never tracked, never scored, and never shopped for; recipes that call for them just list them as assumed.
-- **The app is one screen.** The fridge door appears on open: a fridge standing in the middle, with one floating bubble per category hanging around it. Tapping the fridge swings its door open to show what is inside; tapping a bubble swells it into a grid of ingredient icons. There is no setup screen and no Done control to get past.
+- **The app is one screen.** The fridge door appears on open: a fridge standing in the middle, with one floating bubble per category hanging around it. Tapping the fridge swings its door open to show what is inside, and tapping the fridge again (or its *Close the door* button) shuts it; tapping a bubble swells it into a grid of ingredient icons. There is no setup screen and no Done control to get past.
 - **When you press My Recipes**, the app walks the recipe list, scores each recipe against your stock (the share of its ingredients you already have in full amount), weights longer recipes up, sorts them, and shows the top 2–3.
 - **The look is CSS** — colors, the fridge-door surfaces, and the one signature animation (ingredients sliding together into the dish emoji) are all plain styling, no graphics library.
 
@@ -43,7 +43,7 @@ The PRD's core journey, traced through the pieces (PRD ref: `prd.md > The Core J
 
 Documentation for the platform features used:
 - `localStorage`: https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
-- HTML drag and drop: https://developer.mozilla.org/en-US/docs/Web/API/HTML_Drag_and_Drop_API
+- Pointer events (the icon drag): https://developer.mozilla.org/en-US/docs/Web/API/Pointer_events
 - Python's built-in static server: https://docs.python.org/3/library/http.server.html
 
 ## Where It Runs and How Someone Tries It

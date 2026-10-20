@@ -394,13 +394,15 @@
     customCounter: 0,
     openBubble: null, // the category bubble currently swelled open
     clickTimer: null, // disambiguates click (prompt) from double-click (quick add)
-    clickItemId: null
+    clickItemId: null,
+    suppressClick: false // set by a drag so its release opens nothing
   };
   var els = {};
   var openPick = null; // the recommendation currently centered
   var removeFloatTimer = null; // clears the "out of the fridge" float
   var addFloatTimer = null; // clears the quick-add chip
   var doorOpen = false; // is the fridge door swung open?
+  var dragState = null; // the icon being dragged toward the fridge
 
   function init() {
     els.seedList = document.getElementById('seed-list');
@@ -463,8 +465,16 @@
     els.generateList.addEventListener('click', onGenerateList);
     els.promptForm.addEventListener('submit', onSubmitAmount);
     els.promptCancel.addEventListener('click', closePrompt);
-    els.fridgeDoor.addEventListener('click', function () { setDoor(true); });
+    els.fridgeDoor.addEventListener('click', function () { setDoor(!doorOpen); });
     els.fridgeClose.addEventListener('click', function () { setDoor(false); });
+    // Once open the panel is swung aside and inert, so the fridge body takes
+    // the click: pushing anywhere on it shuts the door, the way a real one
+    // closes. Stock chips are excluded — they are something to read.
+    els.fridge.addEventListener('click', function (e) {
+      if (!doorOpen) return;
+      if (e.target.closest('#fridge-door-panel') || e.target.closest('.stock-item')) return;
+      setDoor(false);
+    });
     els.prompt.addEventListener('click', function (e) {
       if (e.target === els.prompt) closePrompt();
     });
@@ -479,8 +489,6 @@
       if (session.openBubble) { closeBubbles(); return; }
       if (doorOpen) setDoor(false);
     });
-    wireFridgeDrop();
-
     renderAll();
   }
 
@@ -786,7 +794,6 @@
     pick.type = 'button';
     pick.className = 'pick';
     pick.dataset.ingredientId = ing.id;
-    pick.draggable = true;
     pick.setAttribute('aria-label', 'Add ' + ing.name +
       (held > 0 ? ' (you have ' + held + ' ' + ing.unit + ')' : ''));
     pick.title = ing.name + (held > 0 ? ' — ' + held + ' ' + ing.unit + ' in the fridge' : '');
@@ -795,12 +802,14 @@
       '<span class="pick-name">' + escapeHtml(ing.name) + '</span>' +
       (held > 0 ? '<span class="pick-have" aria-hidden="true">' + held + '</span>' : '');
 
-    // One click asks how much; a double click takes a portion straight in.
-    pick.addEventListener('click', function () { onPickClick(ing); });
-    pick.addEventListener('dragstart', function (e) {
-      e.dataTransfer.setData('text/plain', ing.id);
-      e.dataTransfer.effectAllowed = 'copy';
+    // One click asks how much; a double click takes a portion straight in;
+    // press and move drags the icon into the fridge.
+    pick.addEventListener('click', function () {
+      // the tail of a drag must not also read as a click
+      if (session.suppressClick) return;
+      onPickClick(ing);
     });
+    pick.addEventListener('pointerdown', function (e) { startPickDrag(e, ing); });
     return pick;
   }
 
@@ -878,24 +887,109 @@
     }, 1450);
   }
 
-  /* Dragging an icon onto the fridge opens the door to show where it goes,
-   * then asks for the amount — the drag and the tap land in the same place. */
-  function wireFridgeDrop() {
-    els.fridge.addEventListener('dragover', function (e) {
-      e.preventDefault();
-      els.fridge.classList.add('drop-target');
-      if (!doorOpen) setDoor(true);
-    });
-    els.fridge.addEventListener('dragleave', function (e) {
-      if (els.fridge.contains(e.relatedTarget)) return;
-      els.fridge.classList.remove('drop-target');
-    });
-    els.fridge.addEventListener('drop', function (e) {
-      e.preventDefault();
-      els.fridge.classList.remove('drop-target');
-      var id = e.dataTransfer.getData('text/plain');
-      if (getIngredient(id)) openPrompt(id);
-    });
+  /* ---------- dragging an icon into the fridge ---------- */
+
+  /* HTML5 drag-and-drop was tried first and it failed in the hand: the stage
+   * layer above the fridge swallowed the dragover, so a drag started and then
+   * went nowhere. A pointer drag is used instead — it needs nothing but
+   * pointer events, so it behaves the same in every browser and can be driven
+   * end to end by the verification harness. A finger keeps its tap: dragging
+   * with touch would fight the bubble's own scrolling. */
+  var DRAG_THRESHOLD = 7;
+
+  function startPickDrag(e, ing) {
+    if (e.pointerType === 'touch') return;
+    if (e.button !== undefined && e.button !== 0) return;
+    if (dragState) endPickDrag();
+    dragState = { ing: ing, startX: e.clientX, startY: e.clientY, active: false, ghost: null };
+    // Capture, so a release outside the window still ends the drag instead of
+    // leaving the ghost stranded on the screen.
+    if (e.currentTarget && e.currentTarget.setPointerCapture) {
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    window.addEventListener('pointermove', onPickDragMove, true);
+    window.addEventListener('pointerup', onPickDragEnd, true);
+    window.addEventListener('pointercancel', onPickDragCancel, true);
+  }
+
+  function onPickDragMove(e) {
+    if (!dragState) return;
+    var dx = e.clientX - dragState.startX;
+    var dy = e.clientY - dragState.startY;
+    if (!dragState.active) {
+      if (Math.sqrt(dx * dx + dy * dy) < DRAG_THRESHOLD) return;
+      dragState.active = true;
+      // The gesture is a drag, not a click: cancel the amount prompt this
+      // press would otherwise open on release.
+      session.suppressClick = true;
+      clearTimeout(session.clickTimer);
+      session.clickTimer = null;
+      session.clickItemId = null;
+      dragState.ghost = makeDragGhost(dragState.ing);
+      document.body.classList.add('is-dragging');
+    }
+    e.preventDefault();
+    moveDragGhost(e.clientX, e.clientY);
+    setDragOver(pointInFridge(e.clientX, e.clientY));
+  }
+
+  function onPickDragEnd(e) {
+    if (!dragState) return;
+    var wasActive = dragState.active;
+    var landed = wasActive && pointInFridge(e.clientX, e.clientY);
+    var ing = dragState.ing;
+    endPickDrag();
+    if (landed) openPrompt(ing.id);
+    // the click that follows the release is swallowed, then the flag clears
+    setTimeout(function () { session.suppressClick = false; }, 180);
+  }
+
+  function onPickDragCancel() {
+    if (!dragState) return;
+    endPickDrag();
+    setTimeout(function () { session.suppressClick = false; }, 180);
+  }
+
+  function endPickDrag() {
+    window.removeEventListener('pointermove', onPickDragMove, true);
+    window.removeEventListener('pointerup', onPickDragEnd, true);
+    window.removeEventListener('pointercancel', onPickDragCancel, true);
+    if (dragState && dragState.ghost && dragState.ghost.parentNode) {
+      dragState.ghost.parentNode.removeChild(dragState.ghost);
+    }
+    dragState = null;
+    document.body.classList.remove('is-dragging');
+    els.fridge.classList.remove('drop-target');
+  }
+
+  function makeDragGhost(ing) {
+    var ghost = document.createElement('div');
+    ghost.className = 'drag-ghost';
+    ghost.innerHTML =
+      '<span class="drag-ghost-emoji" aria-hidden="true">' + ing.emoji + '</span>' +
+      '<span class="drag-ghost-name">' + escapeHtml(ing.name) + '</span>';
+    ghost.style.left = dragState.startX + 'px';
+    ghost.style.top = dragState.startY + 'px';
+    document.body.appendChild(ghost);
+    return ghost;
+  }
+
+  function moveDragGhost(x, y) {
+    if (!dragState || !dragState.ghost) return;
+    dragState.ghost.style.left = x + 'px';
+    dragState.ghost.style.top = y + 'px';
+  }
+
+  function pointInFridge(x, y) {
+    var r = els.fridge.getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  }
+
+  /* Hovering the fridge mid-drag opens the door, so the drop lands somewhere
+   * you can see. */
+  function setDragOver(over) {
+    els.fridge.classList.toggle('drop-target', over);
+    if (over && !doorOpen) setDoor(true);
   }
 
   /* ---------- shopping list card (spec > Components > Shopping list card) ---------- */

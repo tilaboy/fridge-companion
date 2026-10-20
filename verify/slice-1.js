@@ -157,12 +157,37 @@ check('the fridge door swings open on the tap rather than swapping screens',
   /\.fridge\[data-open="true"\]\s+\.fridge-door-panel\s*\{[^}]*rotateY\(-10\ddeg\)/.test(cssSrc) &&
   appSrc.indexOf('function setDoor(') !== -1 &&
   appSrc.indexOf("els.fridge.setAttribute('data-open'") !== -1);
-check('one bubble opens at a time, and its ingredients become draggable icon buttons',
+
+/* The bubble layer spans the whole stage and sits above the fridge. While it
+ * took the pointer it ate every tap meant for the door: an empty fridge could
+ * not be opened, a stocked one could not be shut, and a dragged ingredient
+ * never reached the drop target. Programmatic .click() hid all of that — only
+ * a real click at a point found it — so the rule is asserted here. */
+check('the stage-wide bubble layer passes taps through to the fridge',
+  /\.bubble-field\s*\{[^}]*pointer-events:\s*none/.test(cssSrc) &&
+  /\.bubble\s*\{\s*pointer-events:\s*auto/.test(cssSrc));
+check('the door shuts again — a close control, and a click on the fridge body',
+  html.indexOf('id="fridge-close"') !== -1 &&
+  /els\.fridgeDoor\.addEventListener\('click', function \(\) \{ setDoor\(!doorOpen\); \}\)/.test(appSrc) &&
+  /els\.fridge\.addEventListener\('click', function \(e\) \{\s*if \(!doorOpen\) return;[\s\S]{0,320}setDoor\(false\)/.test(appSrc));
+check('one bubble opens at a time, and its ingredients can be dragged into the fridge',
   appSrc.indexOf('function toggleBubble(') !== -1 &&
   appSrc.indexOf('session.openBubble') !== -1 &&
   appSrc.indexOf("panel.className = 'bubble-items'") !== -1 &&
   /\.pick\s*\{[^}]*cursor:\s*grab/.test(cssSrc) &&
-  appSrc.indexOf("pick.draggable = true") !== -1);
+  appSrc.indexOf("pick.addEventListener('pointerdown'") !== -1 &&
+  appSrc.indexOf('function startPickDrag(') !== -1 &&
+  appSrc.indexOf('function pointInFridge(') !== -1);
+
+/* The drag is a pointer drag, not the HTML5 one: the native version started
+ * and then dropped nothing, because the stage layer above the fridge ate the
+ * dragover. A pointer drag ends in the amount prompt and must not also read
+ * as a click on the icon it just moved. */
+check('a drag lands in the amount prompt, and its release is not taken as a click',
+  appSrc.indexOf('function onPickDragEnd(') !== -1 &&
+  appSrc.indexOf('session.suppressClick') !== -1 &&
+  appSrc.indexOf('function setDragOver(') !== -1 &&
+  /\.drag-ghost\s*\{[^}]*pointer-events:\s*none/.test(cssSrc));
 check('a double click puts a portion straight in, a single click still asks',
   appSrc.indexOf('QUICK_AMOUNTS') !== -1 &&
   appSrc.indexOf('function quickAdd(') !== -1 &&

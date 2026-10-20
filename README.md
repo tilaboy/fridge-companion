@@ -16,8 +16,8 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 
 ## Try it
 
-1. **First open:** the fridge door is already there, with the suggested categories (Produce, Dairy, Pantry, Leftovers, Meat & Fish) in place. Rename them or add your own under **Rename or add categories** in the ingredient panel.
-2. **Fill the fridge:** the ingredient panel sits beside the fridge. Tap a category to open it, then tap an ingredient — or drag it straight into the fridge — and enter an amount. Staples (milk, flour, salt, sugar) are assumed to be in your kitchen, so they never appear in the tray.
+1. **First open:** the fridge door is already there, with one floating bubble per suggested category (Produce, Dairy, Pantry, Leftovers, Meat & Fish) around it. Rename them or add your own under **Rename or add categories** under the fridge.
+2. **Fill the fridge:** tap the fridge to swing its door open, or tap a bubble to swell it into that category's icons. Then tap an icon and enter an amount, **press and drag** it onto the fridge, or double-click it for a default portion. Tap the fridge again (or **Close the door**) to shut it. Staples (milk, flour, salt, sugar) are assumed to be in your kitchen, so they never appear in a bubble.
 3. **Reload the page:** your kitchen is exactly as you left it.
 4. **Press My Recipes** (it sits right under the fridge): the app scores every built-in recipe against your stock and shows the top 2–3. Longer recipes get a thumb on the scale, so a full dinner is not beaten by a two-ingredient snack.
 5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Press **Cook this** — watch the ingredients combine, and watch the amounts it removes float off the fridge and evaporate ("Out of the fridge"). **Generate the shopping list** only appears when the recipe is actually missing something; a recipe you can already make shows "Cook this" alone.
@@ -28,6 +28,6 @@ Use the local server rather than double-clicking `index.html`: opening the file 
 - Plain HTML/CSS/JS — no framework, no build step, no dependencies.
 - `data/ingredients.js` — the built-in ingredient tray; `data/recipes.js` — the built-in recipe collection.
 - `devpost/` — the planning documents (scope, PRD, spec) and the build checklist that tracks progress.
-- The door is one screen: the fridge takes one third of the two-column grid and the ingredient panel two thirds (the panel is where the picking and dragging happens), and the tray folds into one collapsible group per category (open state is remembered while you work). Categories are editable in the panel's disclosure rather than on a first-use screen.
-- Your kitchen keeps the categories you chose. If the built-in data later gains a category (Meat & Fish, for example), its ingredients show up under a trailing **Other** group until you tick that category on in **Rename or add categories**.
+- The door is one screen: a fridge in the middle with one bubble per category hung either side, placed by percentage on a fixed-height stage so nothing is measured at runtime (below 1000px the bubbles drop under the fridge as a two-up grid). Categories are edited in the disclosure under the fridge rather than on a first-use screen. The icon drag is a pointer drag (not HTML5 drag-and-drop) so it can be exercised end to end by the harnesses.
+- Your kitchen keeps the categories you chose. If the built-in data later gains a category (Meat & Fish, for example), its ingredients show up under a trailing **Other** bubble until you tick that category on in **Rename or add categories**.
 - `verify/` — small node harnesses used to mechanically verify each build slice, e.g. `node verify/slice-1.js`. `verify/slice-4.js` also walks the whole journey end to end (first open → add → recommend → cook → shop → recommend again).
