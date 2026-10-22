@@ -150,15 +150,15 @@ fridge-companion/
 └── .github/workflows/ci.yml
 ```
 
-**ADR-001 — framework or vanilla?** The POC's no-framework choice was right for
-POC size. For accounts, sync, and focus-managed dialogs, either is defensible:
-keep vanilla ES modules + Vite to preserve the kernel's simplicity, or adopt
-Svelte/Preact + TypeScript for state and accessibility ergonomics. Decide before
-M1; do not mix both.
+**ADR-001 — stack. Accepted:** TypeScript + Vite, no UI framework for v1,
+native `<dialog>`, zod at the edges, Vitest from M0. The v2 schema is the crux,
+so types land before the UI does. See [`adr/0001-stack.md`](adr/0001-stack.md).
 
-**ADR-002 — storage.** Keep `localStorage` behind a `Store` interface initially;
-move bulk data to IndexedDB only if stock lots or content outgrow it. The seam
-matters more than the engine.
+**ADR-002 — storage and sync. Accepted:** IndexedDB behind a per-entity store,
+`navigator.storage.persist()`, per-entity `updatedAt`, export as the backup of
+record, and **accounts/sync deferred to v1.1** (household sharing ships as a
+kitchen file first). Size was never the reason to leave `localStorage`; silent
+eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md).
 
 ## 7. Proposed data model (v2)
 
@@ -210,6 +210,11 @@ matters more than the engine.
 
 Make the app reachable, installable, and incapable of silent data loss.
 
+> **Progress (2026-10-22):** export/import with validation and round-trip tests
+> (`verify/slice-5.js`), the storage-failure banner, and CI running all harnesses
+> are in. Boxes stay open until their full wording is met — the importer reads
+> v1 envelopes and bare v1 state today; the v2 migration lands with M1.
+
 - [ ] Export to versioned JSON; import validates and migrates; round-trip test.
 - [ ] Storage failure (quota/blocked) shows a persistent banner; no false success.
 - [ ] Cross-tab sync via `storage` event or `BroadcastChannel`.
@@ -246,7 +251,10 @@ visible, and undo restores the exact prior state.
 **Done when:** a shellfish-allergic user never sees shellfish, "under 20 min"
 works, and a card explains itself in one line.
 
-### M3 — Accounts and sync (1–2 months)
+### M3 — Accounts and sync (v1.1, 1–2 months)
+
+Out of scope for v1 (ADR-002): v1 ships household sharing as an exported kitchen
+file, and this milestone is funded by v1 evidence rather than by the plan.
 
 - [ ] Auth; signed-out local mode still fully usable.
 - [ ] Multi-device sync with a documented conflict policy.
@@ -285,9 +293,9 @@ signature until content licensing and budgets justify photos.
 
 | Question | Blocks | Notes |
 | --- | --- | --- |
-| Framework or vanilla? | M1 | ADR-001; pick one before the UI grows |
-| Which backend/auth? | M3 | Supabase/Firebase vs small Postgres API |
+| ~~Framework or vanilla?~~ | — | **Resolved:** ADR-001 — TypeScript + Vite, no framework |
+| ~~Which backend/auth?~~ | v1.1 | **Deferred** with sync; revisit after v1 evidence |
 | Recipe content licensing? | M2 | Own, public domain, or licensed; record provenance |
-| Free local + paid sync? | M3 | Affects auth and sync design |
+| ~~Free local + paid sync?~~ | v1.1 | **Deferred** with sync |
 | Default unit system? | M1 | Locale default with a user override |
 | Keep emoji or move to photos? | M2+ | Licensing and performance cost |
