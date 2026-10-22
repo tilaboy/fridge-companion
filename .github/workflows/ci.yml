@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure Pages (enabling it on the first run)
+      - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true

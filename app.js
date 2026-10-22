@@ -717,6 +717,7 @@
     closePrompt();
     closeRecipeView();
     closeRecommendations();
+    renderSeedList();
     renderAll();
     els.dataStatus.textContent = 'Imported ' + detail + '.';
     announce('Kitchen imported: ' + detail + '.');
@@ -747,6 +748,7 @@
     closePrompt();
     closeRecipeView();
     closeRecommendations();
+    renderSeedList();
     renderAll();
     els.dataStatus.textContent = 'Kitchen cleared. Start fresh by opening a bubble.';
     announce('Kitchen cleared.');
@@ -800,6 +802,7 @@
     // A recipe card or pick list built against the old kitchen is stale now.
     closeRecipeView();
     closeRecommendations();
+    renderSeedList(); // the categories disclosure is not part of renderAll
     renderAll();
     announce('The kitchen changed in another tab.');
   }
