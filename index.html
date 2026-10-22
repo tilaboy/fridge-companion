@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fridge Door Companion</title>
+  <meta name="description" content="A local-first fridge companion that remembers what's in your kitchen and recommends recipes from what you actually have.">
+  <meta name="theme-color" content="#e8a33d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -98,10 +103,12 @@
           <p class="data-note">
             Your kitchen lives in this browser only. Export a copy before clearing
             browser data, and import it to move to another browser or device.
+            <a href="privacy.html">How your data is handled</a>.
           </p>
           <div class="data-actions">
             <button id="export-button" type="button" class="btn btn-small">Export kitchen</button>
             <button id="import-button" type="button" class="btn btn-small">Import kitchen</button>
+            <button id="reset-button" type="button" class="btn btn-small btn-danger">Reset kitchen</button>
             <input id="import-file" type="file" accept="application/json,.json" class="hidden">
           </div>
           <p id="data-status" class="data-status" role="status" aria-live="polite"></p>

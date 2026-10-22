@@ -563,6 +563,7 @@
     els.importButton = document.getElementById('import-button');
     els.importFile = document.getElementById('import-file');
     els.dataStatus = document.getElementById('data-status');
+    els.resetButton = document.getElementById('reset-button');
 
     // A first visit adopts the seeded categories and opens straight onto the
     // fridge door — no setup screen in front of the app.
@@ -575,6 +576,9 @@
     els.exportButton.addEventListener('click', onExport);
     els.importButton.addEventListener('click', onImportPick);
     els.importFile.addEventListener('change', onImportFile);
+    els.resetButton.addEventListener('click', onResetKitchen);
+    startCrossTabSync();
+    registerServiceWorker();
     els.myRecipesButton.addEventListener('click', onMyRecipes);
     els.recClose.addEventListener('click', closeRecommendations);
     els.recipeClose.addEventListener('click', closeRecipeView);
@@ -632,6 +636,7 @@
       els.storageBanner.classList.remove('hidden');
     } else {
       els.storageBanner.classList.add('hidden');
+      broadcastChange();
     }
     return ok;
   }
@@ -715,6 +720,119 @@
     renderAll();
     els.dataStatus.textContent = 'Imported ' + detail + '.';
     announce('Kitchen imported: ' + detail + '.');
+  }
+
+  /* ---------- reset ---------- */
+
+  /* Clears only this app's key, never the whole storage: other apps on the
+   * same origin are not ours to delete. */
+  function clearStoredKitchen(storage) {
+    if (!storage) return false;
+    try {
+      storage.removeItem(STORAGE_KEY);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function onResetKitchen() {
+    if (!window.confirm('Clear this kitchen and start over? Your categories, stock, and ' +
+        'shopping list will be gone. Export a copy first if you might want them back.')) {
+      return;
+    }
+    clearStoredKitchen(getStorage());
+    state = ensureCategories(createState());
+    persist(state);
+    closePrompt();
+    closeRecipeView();
+    closeRecommendations();
+    renderAll();
+    els.dataStatus.textContent = 'Kitchen cleared. Start fresh by opening a bubble.';
+    announce('Kitchen cleared.');
+  }
+
+  /* ---------- cross-tab sync ---------- */
+
+  var syncChannel = null;
+  var TAB_ID = 'tab-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  /* Pure: the state a tab should show for a given value of the storage key.
+   * null means the key is gone — another tab reset the kitchen — so the
+   * receiving tab lands on the same seeded first-use state. Unreadable values
+   * return null and are ignored rather than blanking a good kitchen. */
+  function remoteStateFromRaw(raw) {
+    if (raw === null || raw === undefined) return ensureCategories(createState());
+    try {
+      return ensureCategories(sanitizeState(JSON.parse(String(raw))));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function sameState(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  function readRawState() {
+    var storage = getStorage();
+    if (!storage) return null;
+    try {
+      return storage.getItem(STORAGE_KEY);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function broadcastChange() {
+    if (!syncChannel) return;
+    try {
+      syncChannel.postMessage({ tab: TAB_ID, at: Date.now() });
+    } catch (e) { /* the other tab still catches up on reload */ }
+  }
+
+  /* Re-read from storage rather than trusting a payload: storage is the
+   * source of truth, so a tab can never apply a half-written message. */
+  function receiveRemoteState(raw) {
+    var incoming = remoteStateFromRaw(raw);
+    if (!incoming || sameState(incoming, state)) return;
+    state = incoming;
+    // A recipe card or pick list built against the old kitchen is stale now.
+    closeRecipeView();
+    closeRecommendations();
+    renderAll();
+    announce('The kitchen changed in another tab.');
+  }
+
+  function startCrossTabSync() {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        syncChannel = new BroadcastChannel('fdc-kitchen');
+        syncChannel.onmessage = function (event) {
+          if (!event.data || event.data.tab === TAB_ID) return;
+          receiveRemoteState(readRawState());
+        };
+        return;
+      } catch (e) {
+        syncChannel = null;
+      }
+    }
+    // Fallback for browsers without BroadcastChannel: the storage event only
+    // fires in other tabs, which is exactly the audience we want.
+    window.addEventListener('storage', function (event) {
+      if (event.key !== STORAGE_KEY && event.key !== null) return;
+      receiveRemoteState(event.newValue);
+    });
+  }
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (location.protocol === 'file:') return; // no worker on file://; see README
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {
+        // Offline reload is an enhancement; the app works without it.
+      });
+    });
   }
 
   /* ---------- categories (the tray panel's disclosure) ---------- */
@@ -1591,6 +1709,9 @@
     buildExport: buildExport,
     exportJson: exportJson,
     parseImportPayload: parseImportPayload,
+    remoteStateFromRaw: remoteStateFromRaw,
+    sameState: sameState,
+    clearStoredKitchen: clearStoredKitchen,
     loadState: loadState,
     saveState: saveState,
     scoreRecipe: scoreRecipe,
