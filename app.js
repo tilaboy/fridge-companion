@@ -328,8 +328,11 @@
 
   /* Storage is user data that could be stale, hand-edited, or corrupt.
    * Sanitize on load: drop anything that doesn't match the data model
-   * (spec > Data Model). */
-  function sanitizeState(parsed) {
+   * (spec > Data Model). `knownOnly` is for imported files, where a reference
+   * to an ingredient or recipe this build does not have is junk rather than
+   * something to keep. */
+  function sanitizeState(parsed, options) {
+    var knownOnly = !!(options && options.knownOnly);
     var fresh = createState();
     if (!parsed || typeof parsed !== 'object') return fresh;
 
@@ -341,22 +344,127 @@
         var n = Number(parsed.stock[id]);
         // Staples are no longer tracked, so drop any left behind by an
         // earlier version of the app.
-        if (isValidAmount(n) && !isStaple(id)) fresh.stock[id] = n;
+        if (!isValidAmount(n) || isStaple(id)) return;
+        if (knownOnly && !getIngredient(id)) return;
+        fresh.stock[id] = n;
       });
     }
     if (Array.isArray(parsed.shoppingList)) {
       fresh.shoppingList = parsed.shoppingList.filter(function (item) {
         return !!item && typeof item.ingredientId === 'string' &&
-          isValidAmount(Number(item.amount));
+          isValidAmount(Number(item.amount)) &&
+          (!knownOnly || !!getIngredient(item.ingredientId));
       }).map(function (item) {
+        var fromRecipeId = typeof item.fromRecipeId === 'string' ? item.fromRecipeId : null;
+        if (knownOnly && fromRecipeId && !getRecipe(fromRecipeId)) fromRecipeId = null;
         return {
           ingredientId: item.ingredientId,
           amount: Number(item.amount),
-          fromRecipeId: typeof item.fromRecipeId === 'string' ? item.fromRecipeId : null
+          fromRecipeId: fromRecipeId
         };
       });
     }
     return fresh;
+  }
+
+  /* ---------- export / import ---------- */
+
+  /* A versioned envelope, not a bare dump of the storage key: the importer can
+   * tell our file from any other JSON, refuse a newer schema instead of
+   * mangling it, and tell the user what is inside before replacing anything. */
+  var APP_ID = 'fridge-companion';
+  var SCHEMA_VERSION = 1;
+
+  function isEmptyKitchen(state) {
+    return state.categories.length === 0 &&
+      Object.keys(state.stock).length === 0 &&
+      state.shoppingList.length === 0;
+  }
+
+  function summarizeState(state) {
+    return {
+      categories: state.categories.length,
+      ingredients: Object.keys(state.stock).length,
+      shoppingList: state.shoppingList.length
+    };
+  }
+
+  function buildExport(state, now) {
+    var at = now instanceof Date ? now : new Date();
+    return {
+      app: APP_ID,
+      format: 'kitchen',
+      schemaVersion: SCHEMA_VERSION,
+      exportedAt: at.toISOString(),
+      summary: summarizeState(state),
+      state: cloneState(state)
+    };
+  }
+
+  function exportJson(state, now) {
+    return JSON.stringify(buildExport(state, now), null, 2) + '\n';
+  }
+
+  function looksLikeKitchen(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return Array.isArray(value.categories) ||
+      (!!value.stock && typeof value.stock === 'object' && !Array.isArray(value.stock)) ||
+      Array.isArray(value.shoppingList);
+  }
+
+  /* Import is the one place stale or hostile data enters on purpose. It accepts
+   * our envelope and a bare v1 state (what the POC wrote to `fdc-state-v1`),
+   * refuses everything else, and runs whatever survives through sanitizeState
+   * so no import can produce a shape the rest of the app doesn't expect. */
+  function parseImportPayload(text) {
+    var parsed;
+    try {
+      parsed = JSON.parse(String(text));
+    } catch (e) {
+      return { ok: false, error: 'That file is not valid JSON.' };
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, error: 'That file does not contain a kitchen.' };
+    }
+
+    var envelope = Object.prototype.hasOwnProperty.call(parsed, 'state') ||
+      parsed.app === APP_ID ||
+      Object.prototype.hasOwnProperty.call(parsed, 'schemaVersion');
+    var raw = parsed;
+    var version = 0;
+
+    if (envelope) {
+      if (parsed.app !== undefined && parsed.app !== APP_ID) {
+        return { ok: false, error: 'That file belongs to a different app.' };
+      }
+      version = Number(parsed.schemaVersion);
+      if (!isFinite(version) || version < 1) {
+        return { ok: false, error: 'That file has no readable schema version.' };
+      }
+      if (version > SCHEMA_VERSION) {
+        return {
+          ok: false,
+          error: 'That file was made by a newer version of the app. Update before importing it.'
+        };
+      }
+      raw = parsed.state;
+    }
+
+    if (!looksLikeKitchen(raw)) {
+      return { ok: false, error: 'That file does not look like a Fridge Door Companion kitchen.' };
+    }
+
+    var clean = sanitizeState(raw, { knownOnly: true });
+    if (isEmptyKitchen(clean)) {
+      return { ok: false, error: 'That file has no stock, categories, or shopping list to import.' };
+    }
+    return {
+      ok: true,
+      state: clean,
+      schemaVersion: version,
+      legacy: !envelope,
+      summary: summarizeState(clean)
+    };
   }
 
   function loadState() {
@@ -449,15 +557,24 @@
     els.removeFloat = document.getElementById('remove-float');
     els.addFloat = document.getElementById('add-float');
     els.srStatus = document.getElementById('sr-status');
+    els.storageBanner = document.getElementById('storage-banner');
+    els.storageBannerText = document.getElementById('storage-banner-text');
+    els.exportButton = document.getElementById('export-button');
+    els.importButton = document.getElementById('import-button');
+    els.importFile = document.getElementById('import-file');
+    els.dataStatus = document.getElementById('data-status');
 
     // A first visit adopts the seeded categories and opens straight onto the
     // fridge door — no setup screen in front of the app.
     state = ensureCategories(loadState());
-    saveState(state);
+    persist(state);
 
     renderSeedList();
     els.addCategoryForm.addEventListener('submit', onAddCategory);
     els.confirmCategories.addEventListener('click', onConfirmCategories);
+    els.exportButton.addEventListener('click', onExport);
+    els.importButton.addEventListener('click', onImportPick);
+    els.importFile.addEventListener('change', onImportFile);
     els.myRecipesButton.addEventListener('click', onMyRecipes);
     els.recClose.addEventListener('click', closeRecommendations);
     els.recipeClose.addEventListener('click', closeRecipeView);
@@ -498,6 +615,106 @@
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+
+  /* ---------- saving, and saying so when it fails ---------- */
+
+  /* Every write goes through here for one reason: a `false` from saveState is
+   * a promise to the user that their kitchen is safe, so staying quiet is a
+   * bug (roadmap §2 principle 2). The banner is persistent on purpose — it
+   * cannot be dismissed, because the risk does not go away. */
+  function persist(nextState) {
+    var ok = saveState(nextState);
+    if (!ok) {
+      els.storageBannerText.textContent =
+        'Your last change could not be saved. This browser is blocking storage or is full, ' +
+        'so the kitchen will not survive a reload. Export a copy now.';
+      els.storageBanner.classList.remove('hidden');
+    } else {
+      els.storageBanner.classList.add('hidden');
+    }
+    return ok;
+  }
+
+  /* ---------- export / import ---------- */
+
+  function countLine(summary) {
+    function plural(n, one, many) {
+      return n + ' ' + (n === 1 ? one : (many || one + 's'));
+    }
+    return plural(summary.ingredients, 'ingredient') + ', ' +
+      plural(summary.categories, 'category', 'categories') + ', ' +
+      plural(summary.shoppingList, 'shopping-list item');
+  }
+
+  function todayStamp(now) {
+    var d = now instanceof Date ? now : new Date();
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function onExport() {
+    try {
+      var blob = new Blob([exportJson(state)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = 'fridge-companion-kitchen-' + todayStamp() + '.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      els.dataStatus.textContent = 'Exported ' + countLine(summarizeState(state)) + '.';
+      announce('Kitchen exported.');
+    } catch (e) {
+      els.dataStatus.textContent =
+        'That export did not work in this browser. Try a different browser before clearing data.';
+    }
+  }
+
+  function onImportPick() {
+    els.importFile.click();
+  }
+
+  function onImportFile(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      applyImport(String(reader.result));
+      els.importFile.value = ''; // allow picking the same file again
+    };
+    reader.onerror = function () {
+      els.dataStatus.textContent = 'That file could not be read.';
+      els.importFile.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  /* Import is destructive, so it asks first unless this kitchen is empty —
+   * and it replaces state only after the payload has been validated. */
+  function applyImport(text) {
+    var result = parseImportPayload(text);
+    if (!result.ok) {
+      els.dataStatus.textContent = result.error;
+      announce(result.error);
+      return;
+    }
+    var detail = countLine(result.summary);
+    if (!isEmptyKitchen(state) &&
+        !window.confirm('Replace the kitchen in this browser with the imported one (' + detail +
+          ')? The current kitchen will be lost.')) {
+      els.dataStatus.textContent = 'Import cancelled. Nothing changed.';
+      return;
+    }
+    state = result.state;
+    persist(state);
+    closePrompt();
+    closeRecipeView();
+    closeRecommendations();
+    renderAll();
+    els.dataStatus.textContent = 'Imported ' + detail + '.';
+    announce('Kitchen imported: ' + detail + '.');
   }
 
   /* ---------- categories (the tray panel's disclosure) ---------- */
@@ -572,7 +789,7 @@
     }
     els.categoryError.classList.add('hidden');
     state.categories = confirmCategories(chosen);
-    saveState(state);
+    persist(state);
     renderSeedList();
     renderAll();
   }
@@ -850,7 +1067,7 @@
     if (!ing) return;
     var amount = defaultAmount(ing);
     state = addToStock(state, ingredientId, amount);
-    saveState(state);
+    persist(state);
     renderAll();
     if (!doorOpen) setDoor(true); // show it land
     playAddFloat(ing, amount);
@@ -1022,7 +1239,7 @@
 
   function onBuyItem(ingredientId) {
     state = buyShoppingListItem(state, ingredientId);
-    saveState(state);
+    persist(state);
     renderAll();
   }
 
@@ -1164,7 +1381,7 @@
     var spec = combineAnimationSpec(recipe, heldIngredientIds(recipe));
     var taken = cookDeductions(state, recipe); // read before the stock changes
     state = cookRecipe(state, recipe); // deducts only what you have
-    saveState(state);
+    persist(state);
     closeRecipeView();
     closeRecommendations();
     renderAll();
@@ -1178,7 +1395,7 @@
     var missing = missingIngredients(state, recipe);
     var spec = combineAnimationSpec(recipe, missing.map(function (m) { return m.ingredientId; }));
     state = addToShoppingList(state, recipe); // missing items, recipe quantities
-    saveState(state);
+    persist(state);
     closeRecipeView();
     closeRecommendations();
     renderAll();
@@ -1342,7 +1559,7 @@
       return;
     }
     state = addToStock(state, session.promptIngredientId, n);
-    saveState(state);
+    persist(state);
     closePrompt();
     renderAll();
     if (!doorOpen) setDoor(true); // show it land
@@ -1366,7 +1583,14 @@
     getIngredient: getIngredient,
     isStaple: isStaple,
     STAPLE_IDS: STAPLE_IDS,
+    APP_ID: APP_ID,
+    SCHEMA_VERSION: SCHEMA_VERSION,
     sanitizeState: sanitizeState,
+    summarizeState: summarizeState,
+    isEmptyKitchen: isEmptyKitchen,
+    buildExport: buildExport,
+    exportJson: exportJson,
+    parseImportPayload: parseImportPayload,
     loadState: loadState,
     saveState: saveState,
     scoreRecipe: scoreRecipe,

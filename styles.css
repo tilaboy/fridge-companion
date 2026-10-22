@@ -778,6 +778,68 @@ body.is-dragging { cursor: grabbing; user-select: none; }
   padding-top: 12px;
 }
 
+/* ---------- the data panel (export / import) ---------- */
+
+/* Reuses the categories disclosure, so the door footer keeps one rhythm. */
+.door-footer .data-panel { margin-top: 2px; }
+
+.data-note {
+  margin: 10px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.data-status {
+  margin: 8px 0 0;
+  min-height: 1.2em;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+/* ---------- storage failure banner ---------- */
+
+/* Persistent, deliberately not dismissible: the risk does not go away. */
+.storage-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 640px;
+  margin: 0 auto 18px;
+  padding: 12px 16px;
+  border: 1px solid #e3c19a;
+  border-left: 4px solid var(--missing);
+  border-radius: 12px;
+  background: #fff5e9;
+  color: #6d3a16;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: var(--shadow);
+}
+
+.storage-banner-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--missing);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.storage-banner-text { margin: 0; }
+.storage-banner-text strong { display: block; margin-bottom: 2px; }
+
 .shopping-list { max-width: 460px; margin: 20px auto 0; }
 
 .fridge-actions {

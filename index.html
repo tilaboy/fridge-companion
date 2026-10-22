@@ -8,6 +8,15 @@
 </head>
 <body>
   <div class="page">
+    <!-- Shown only when a write fails (roadmap M0): no silent data loss. -->
+    <div id="storage-banner" class="storage-banner hidden" role="alert">
+      <span aria-hidden="true" class="storage-banner-icon">!</span>
+      <p class="storage-banner-text">
+        <strong>Your kitchen isn&rsquo;t being saved.</strong>
+        <span id="storage-banner-text"></span>
+      </p>
+    </div>
+
     <header class="app-header">
       <h1 class="app-title">Fridge Door Companion</h1>
       <p class="app-tagline">your kitchen, on the door</p>
@@ -79,6 +88,23 @@
           </form>
           <p id="category-error" class="category-error hidden" role="alert"></p>
           <button id="confirm-categories" type="button" class="btn btn-primary btn-small">Save categories</button>
+        </details>
+
+        <!-- Export is the backup of record (roadmap §2 principle 2, ADR-002).
+             A kitchen file is also how two people share a fridge until sync
+             exists. -->
+        <details id="data-panel" class="categories-panel data-panel">
+          <summary class="categories-summary">Your data</summary>
+          <p class="data-note">
+            Your kitchen lives in this browser only. Export a copy before clearing
+            browser data, and import it to move to another browser or device.
+          </p>
+          <div class="data-actions">
+            <button id="export-button" type="button" class="btn btn-small">Export kitchen</button>
+            <button id="import-button" type="button" class="btn btn-small">Import kitchen</button>
+            <input id="import-file" type="file" accept="application/json,.json" class="hidden">
+          </div>
+          <p id="data-status" class="data-status" role="status" aria-live="polite"></p>
         </details>
       </div>
 
