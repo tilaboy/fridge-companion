@@ -43,12 +43,31 @@ export interface ShoppingItem {
   fromRecipeId: RecipeId | null;
 }
 
-/** Held amount per ingredient. Absent means zero. */
+/** Held amount per ingredient. Absent means zero. Derived from lots. */
 export type Stock = Record<IngredientId, number>;
 
+/**
+ * One batch of an ingredient in the fridge.
+ *
+ * Amounts are in the ingredient's own unit for now. `expiresAt` is a date
+ * (`YYYY-MM-DD`) or null when nothing is known; `addedAt` is a full timestamp
+ * so the oldest batch is used first when expiry ties.
+ */
+export interface StockLot {
+  id: string;
+  ingredientId: IngredientId;
+  amount: number;
+  expiresAt: string | null;
+  addedAt: string;
+}
+
+export type ExpiryStatus = 'none' | 'later' | 'soon' | 'expired';
+
 export interface KitchenState {
+  /** The payload version. v1 carried a bare `stock` map instead of lots. */
+  schemaVersion: number;
   categories: Category[];
-  stock: Stock;
+  stockLots: StockLot[];
   shoppingList: ShoppingItem[];
 }
 

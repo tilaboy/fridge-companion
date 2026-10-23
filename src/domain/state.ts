@@ -4,16 +4,26 @@
  * a fresh object, so callers can hand the old one to the UI or a previous
  * undo step without worrying about aliasing.
  */
-import type { Category, KitchenState, ShoppingItem, StateSummary, Stock } from './types';
+import { addLot } from './lots';
+import type { Category, KitchenState, ShoppingItem, StateSummary, Stock, StockLot } from './types';
 
 export function createState(): KitchenState {
-  return { categories: [], stock: {}, shoppingList: [] };
+  return { schemaVersion: 2, categories: [], stockLots: [], shoppingList: [] };
 }
 
 export function cloneState(state: KitchenState): KitchenState {
   return {
+    schemaVersion: state.schemaVersion,
     categories: state.categories.map((category) => ({ id: category.id, name: category.name })),
-    stock: Object.assign({}, state.stock),
+    stockLots: state.stockLots.map(
+      (lot): StockLot => ({
+        id: lot.id,
+        ingredientId: lot.ingredientId,
+        amount: lot.amount,
+        expiresAt: lot.expiresAt,
+        addedAt: lot.addedAt,
+      }),
+    ),
     shoppingList: state.shoppingList.map(
       (item): ShoppingItem => ({
         ingredientId: item.ingredientId,
@@ -24,21 +34,23 @@ export function cloneState(state: KitchenState): KitchenState {
   };
 }
 
-/** Re-adding an ingredient combines amounts: 2 eggs + 3 eggs = 5. */
+/** Re-adding an ingredient adds a batch: 2 eggs now + 3 eggs later = 5. */
 export function addToStock(
   state: KitchenState,
   ingredientId: string,
   amount: number,
+  expiresAt: string | null = null,
+  now: Date = new Date(),
 ): KitchenState {
   const next = cloneState(state);
-  next.stock[ingredientId] = (next.stock[ingredientId] ?? 0) + amount;
+  next.stockLots = addLot(next.stockLots, ingredientId, amount, expiresAt, now);
   return next;
 }
 
 export function isEmptyKitchen(state: KitchenState): boolean {
   return (
     state.categories.length === 0 &&
-    Object.keys(state.stock).length === 0 &&
+    state.stockLots.length === 0 &&
     state.shoppingList.length === 0
   );
 }
@@ -46,7 +58,7 @@ export function isEmptyKitchen(state: KitchenState): boolean {
 export function summarizeState(state: KitchenState): StateSummary {
   return {
     categories: state.categories.length,
-    ingredients: Object.keys(state.stock).length,
+    ingredients: new Set(state.stockLots.map((lot) => lot.ingredientId)).size,
     shoppingList: state.shoppingList.length,
   };
 }

@@ -7,6 +7,7 @@
  */
 import type { Catalog } from './catalog';
 import { isStaple } from './catalog';
+import { stockTotals, totalAmount } from './lots';
 import type { KitchenState, Recipe, ScoredRecipe, Stock } from './types';
 
 export function scoreRecipe(catalog: Catalog, recipe: Recipe, stock: Stock): ScoredRecipe {
@@ -47,9 +48,10 @@ export function recommend(
   state: KitchenState,
   recipeList: readonly Recipe[] = catalog.recipes,
 ): ScoredRecipe[] {
+  const totals = stockTotals(state.stockLots);
   return recipeList
     .map((recipe) => {
-      const scored = scoreRecipe(catalog, recipe, state.stock);
+      const scored = scoreRecipe(catalog, recipe, totals);
       scored.rank = scored.score * lengthMultiplier(scored.total);
       return scored;
     })
@@ -72,7 +74,7 @@ export function missingIngredients(
     .filter(
       (ri) =>
         !isStaple(catalog, ri.ingredientId) &&
-        (state.stock[ri.ingredientId] ?? 0) < ri.amount,
+        totalAmount(state.stockLots, ri.ingredientId) < ri.amount,
     )
     .map((ri) => ({ ingredientId: ri.ingredientId, amount: ri.amount }));
 }

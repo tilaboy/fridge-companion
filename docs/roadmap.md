@@ -233,20 +233,29 @@ via export/import, and see a warning when a write fails.
 
 > **Progress (2026-10-23):** the module split is done. The kernel is typed
 > (`src/domain/`) and tested; the UI is an ES module on top of it, built by Vite
-> into `dist/` and deployed by CI. The six node harnesses were ported into 80
+> into `dist/` and deployed by CI. The six node harnesses were ported into 94
 > Vitest tests (domain, store, data, journey, shell) before being deleted; a
 > temporary parity suite proved the extraction identical to v1 and retired with
-> the old copy. Verified end to end in Chrome: add → recommend → cook, plus an
-> offline reload of the built shell. Next: the v2 schema, units, lots, custom
-> items, undo, and the migration.
+> the old copy.
+>
+> Schema 2 now stores `stockLots` (amount, optional expiry, arrival time) and
+> derives every total; cooking consumes the soonest-expiring batch first. The
+> fridge shows expiry badges and sorts by use-soon, the amount prompt takes an
+> optional date, and the v1 `stock` map migrates in place on load or import —
+> idempotently, and covered by tests. Verified in Chrome: a lot created with a
+> date keeps it through reload and cooking, and a seeded v1 kitchen becomes one
+> v2 lot with staples dropped.
+>
+> Next: fraction/decimal amounts and units, custom ingredients/recipes,
+> configurable staples, and undo.
 
 - [ ] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
-- [ ] Stock lots with optional expiry; "use soon" ordering; expired badge.
+- [x] Stock lots with optional expiry; "use soon" ordering; expired badge.
 - [ ] Custom ingredients and recipes with validation and de-duplication.
 - [ ] Configurable staples per user.
 - [ ] Undo for cook and restock; confirmation for destructive actions.
-- [ ] Idempotent v1 → v2 migration covered by tests.
+- [x] Idempotent v1 → v2 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is
 visible, and undo restores the exact prior state.

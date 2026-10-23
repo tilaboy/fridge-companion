@@ -8,6 +8,7 @@ import {
   ensureCategories,
 } from '../src/domain/index';
 import { createState } from '../src/domain/state';
+import { stockTotals } from '../src/domain/lots';
 import { loadState, saveState } from '../src/store/localStore';
 import { catalog } from './fixtures';
 
@@ -48,7 +49,7 @@ describe('the core loop', () => {
     state = addToStock(state, 'butter', 10);
     state = addToStock(state, 'pasta', 100);
     expect(saveState(state, storage)).toBe(true);
-    expect(loadState(catalog, storage).stock).toEqual({ egg: 5, butter: 10, pasta: 100 });
+    expect(stockTotals(loadState(catalog, storage).stockLots)).toEqual({ egg: 5, butter: 10, pasta: 100 });
 
     // 3. My Recipes: the complete recipe leads.
     let picks = recommend(catalog, state);
@@ -57,9 +58,9 @@ describe('the core loop', () => {
 
     // 4. Cook it: the amounts leave, zeroes disappear.
     state = cookRecipe(catalog, state, recipe('scrambled_eggs'));
-    expect(state.stock).toEqual({ egg: 2, pasta: 100 });
+    expect(stockTotals(state.stockLots)).toEqual({ egg: 2, pasta: 100 });
     expect(saveState(state, storage)).toBe(true);
-    expect(loadState(catalog, storage).stock).toEqual({ egg: 2, pasta: 100 });
+    expect(stockTotals(loadState(catalog, storage).stockLots)).toEqual({ egg: 2, pasta: 100 });
 
     // 5. The picks move on, and another card can be shopped for.
     picks = recommend(catalog, state);
@@ -77,8 +78,8 @@ describe('the core loop', () => {
     // 6. Shop: both items join the stock and leave the list.
     state = buyShoppingListItem(state, 'cooked_rice');
     state = buyShoppingListItem(state, 'soy_sauce');
-    expect(state.stock.cooked_rice).toBe(250);
-    expect(state.stock.soy_sauce).toBe(15);
+    expect(stockTotals(state.stockLots).cooked_rice).toBe(250);
+    expect(stockTotals(state.stockLots).soy_sauce).toBe(15);
     expect(state.shoppingList).toEqual([]);
     expect(saveState(state, storage)).toBe(true);
     expect(loadState(catalog, storage).shoppingList).toEqual([]);
@@ -95,7 +96,10 @@ describe('the core loop', () => {
 
   it('never mutates the state handed to a commit action', () => {
     const before = createState();
-    before.stock = { egg: 5, butter: 10 };
+    before.stockLots = [
+      { id: 'a', ingredientId: 'egg', amount: 5, expiresAt: null, addedAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'b', ingredientId: 'butter', amount: 10, expiresAt: null, addedAt: '2026-01-01T00:00:00.000Z' },
+    ];
     const snapshot = JSON.stringify(before);
     cookRecipe(catalog, before, recipe('scrambled_eggs'));
     addToShoppingList(catalog, before, recipe('soy_rice_bowl'));

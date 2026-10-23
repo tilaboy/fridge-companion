@@ -7,8 +7,8 @@ import {
   recommend,
   scoreRecipe,
 } from '../../src/domain/recommend';
-import { createState } from '../../src/domain/state';
 import type { Ingredient, KitchenState, Recipe } from '../../src/domain/types';
+import { kitchenWithStock } from '../stock';
 
 const tray: Ingredient[] = [
   { id: 'egg', name: 'Egg', emoji: 'E', categoryId: 'dairy', unit: 'pcs' },
@@ -49,11 +49,7 @@ const book: Recipe[] = [
 
 const catalog = createCatalog(tray, book);
 
-function kitchen(stock: Record<string, number>): KitchenState {
-  const state = createState();
-  state.stock = stock;
-  return state;
-}
+const kitchen = (stock: Record<string, number>): KitchenState => kitchenWithStock(stock);
 
 describe('scoreRecipe', () => {
   it('counts an ingredient only when the amount is sufficient', () => {

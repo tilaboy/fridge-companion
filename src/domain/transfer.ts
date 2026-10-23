@@ -1,30 +1,28 @@
-/* Export, import, and the two reconciliation helpers.
+/* Export, import, sanitizing, migration, and the reconciliation helpers.
  *
  * Import is the one place stale or hostile data enters on purpose. It accepts
- * our versioned envelope and a bare v1 state (what the POC wrote to
- * `fdc-state-v1`), refuses everything else, and runs whatever survives through
- * sanitizeState so no import can produce a shape the rest of the app does not
- * expect.
+ * our versioned envelope, a v1 envelope, and a bare v1 state (what the POC
+ * wrote to `fdc-state-v1`), refuses everything else, and runs whatever survives
+ * through `sanitizeState`. That function is also the migration: a v1 `stock`
+ * map becomes a list of lots, and running it on an already-v2 kitchen is a
+ * no-op apart from sanitizing.
  */
 import type { Catalog } from './catalog';
 import { getIngredient, getRecipe, isStaple } from './catalog';
 import { isValidAmount } from './amount';
 import { confirmCategories, ensureCategories } from './categories';
-import {
-  cloneState,
-  createState,
-  isEmptyKitchen,
-  summarizeState,
-} from './state';
+import { normalizeExpiry } from './lots';
+import { cloneState, createState, isEmptyKitchen, summarizeState } from './state';
 import type {
   ExportEnvelope,
   ImportResult,
   KitchenState,
   ShoppingItem,
+  StockLot,
 } from './types';
 
 export const APP_ID = 'fridge-companion';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -35,17 +33,80 @@ function hasOwn(record: Record<string, unknown>, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(record, key);
 }
 
+/** v1's `{ ingredientId: amount }` becomes one lot per ingredient. */
+function migrateStock(
+  catalog: Catalog,
+  stock: Record<string, unknown>,
+  knownOnly: boolean,
+  now: Date,
+): StockLot[] {
+  const lots: StockLot[] = [];
+  const addedAt = now.toISOString();
+  let index = 0;
+  for (const ingredientId of Object.keys(stock)) {
+    const amount = Number(stock[ingredientId]);
+    // Staples were never tracked; drop any left by an earlier version.
+    if (!isValidAmount(amount) || isStaple(catalog, ingredientId)) continue;
+    if (knownOnly && !getIngredient(catalog, ingredientId)) continue;
+    lots.push({
+      id: 'migrated-' + ingredientId + '-' + index++,
+      ingredientId,
+      amount,
+      expiresAt: null,
+      addedAt,
+    });
+  }
+  return lots;
+}
+
+function sanitizeLots(
+  catalog: Catalog,
+  list: readonly unknown[],
+  knownOnly: boolean,
+  now: Date,
+): StockLot[] {
+  const lots: StockLot[] = [];
+  const ids = new Set<string>();
+  let index = 0;
+  for (const raw of list) {
+    const entry = asRecord(raw);
+    if (!entry || typeof entry.ingredientId !== 'string') continue;
+    const amount = Number(entry.amount);
+    if (!isValidAmount(amount) || isStaple(catalog, entry.ingredientId)) continue;
+    if (knownOnly && !getIngredient(catalog, entry.ingredientId)) continue;
+
+    let id =
+      typeof entry.id === 'string' && entry.id !== '' && !ids.has(entry.id)
+        ? entry.id
+        : 'lot-' + entry.ingredientId + '-' + index;
+    while (ids.has(id)) id += '-x';
+    ids.add(id);
+
+    const expiresAt = normalizeExpiry(entry.expiresAt);
+    const addedAt =
+      typeof entry.addedAt === 'string' && !Number.isNaN(Date.parse(entry.addedAt))
+        ? entry.addedAt
+        : now.toISOString();
+
+    lots.push({ id, ingredientId: entry.ingredientId, amount, expiresAt, addedAt });
+    index += 1;
+  }
+  return lots;
+}
+
 /**
- * Drop everything that does not match the data model. `knownOnly` is for
- * imported files, where a reference to an ingredient or recipe this build does
- * not have is junk rather than something to keep.
+ * Drop everything that does not match the data model, migrating v1 stock on
+ * the way. `knownOnly` is for imported files, where a reference to an
+ * ingredient or recipe this build does not have is junk rather than something
+ * to keep.
  */
 export function sanitizeState(
   catalog: Catalog,
   parsed: unknown,
-  options: { knownOnly?: boolean } = {},
+  options: { knownOnly?: boolean; now?: Date } = {},
 ): KitchenState {
   const knownOnly = Boolean(options.knownOnly);
+  const now = options.now ?? new Date();
   const fresh = createState();
   const record = asRecord(parsed);
   if (!record) return fresh;
@@ -54,15 +115,12 @@ export function sanitizeState(
     fresh.categories = confirmCategories(record.categories);
   }
 
-  const stock = asRecord(record.stock);
-  if (stock) {
-    for (const id of Object.keys(stock)) {
-      const n = Number(stock[id]);
-      // Staples are no longer tracked, so drop any left behind by an
-      // earlier version of the app.
-      if (!isValidAmount(n) || isStaple(catalog, id)) continue;
-      if (knownOnly && !getIngredient(catalog, id)) continue;
-      fresh.stock[id] = n;
+  if (Array.isArray(record.stockLots)) {
+    fresh.stockLots = sanitizeLots(catalog, record.stockLots, knownOnly, now);
+  } else {
+    const legacyStock = asRecord(record.stock);
+    if (legacyStock) {
+      fresh.stockLots = migrateStock(catalog, legacyStock, knownOnly, now);
     }
   }
 
@@ -114,6 +172,7 @@ function looksLikeKitchen(value: unknown): boolean {
   if (!record) return false;
   return (
     Array.isArray(record.categories) ||
+    Array.isArray(record.stockLots) ||
     !!asRecord(record.stock) ||
     Array.isArray(record.shoppingList)
   );
@@ -131,7 +190,7 @@ export function parseImportPayload(catalog: Catalog, text: unknown): ImportResul
     return { ok: false, error: 'That file does not contain a kitchen.' };
   }
 
-  const envelope = hasOwn(record, 'state') || record.app === APP_ID || hasOwn(record, 'schemaVersion');
+  const envelope = hasOwn(record, 'state') || record.app === APP_ID;
   let raw: unknown = record;
   let version = 0;
 
@@ -180,7 +239,10 @@ export function parseImportPayload(catalog: Catalog, text: unknown): ImportResul
  * BroadcastChannel payload. Null means "unreadable", which the caller reports
  * instead of replacing the local kitchen with nothing.
  */
-export function remoteStateFromRaw(catalog: Catalog, raw: string | null | undefined): KitchenState | null {
+export function remoteStateFromRaw(
+  catalog: Catalog,
+  raw: string | null | undefined,
+): KitchenState | null {
   if (raw === null || raw === undefined) return ensureCategories(createState());
   try {
     return ensureCategories(sanitizeState(catalog, JSON.parse(String(raw))));

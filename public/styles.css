@@ -345,6 +345,20 @@ body {
   min-width: 32px;
 }
 
+.stock-expiry {
+  margin-top: 1px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 14px;
+  color: var(--ink-soft);
+  background: rgba(90, 70, 40, .09);
+  white-space: nowrap;
+}
+
+.stock-expiry-soon { color: #7a4b00; background: #ffe6b8; }
+.stock-expiry-expired { color: #fff; background: var(--missing); }
+
 .stock-emoji {
   font-size: 21px;
   line-height: 1;
@@ -881,6 +895,10 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 .prompt-emoji { font-size: 24px; }
 
 .prompt-label { display: block; margin: 0 0 8px; color: var(--ink-soft); font-size: 14px; }
+
+.prompt-row + .prompt-label { margin-top: 14px; }
+
+.prompt-hint { font-size: 12px; opacity: .7; }
 
 .prompt-row { display: flex; align-items: center; gap: 8px; }
 

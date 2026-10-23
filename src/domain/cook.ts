@@ -2,10 +2,12 @@
  *
  * All pure. "Cook this" deducts what the kitchen actually holds — the full
  * recipe amount when there is enough, otherwise whatever is left, never below
- * zero. Staples are never deducted or shopped for.
+ * zero — taking the soonest-expiring batch first. Staples are never deducted
+ * or shopped for.
  */
 import type { Catalog } from './catalog';
 import { getIngredient, isStaple } from './catalog';
+import { addLot, sortedLotsFor, stockTotals, totalAmount } from './lots';
 import { cloneState } from './state';
 import { missingIngredients } from './recommend';
 import type {
@@ -16,15 +18,27 @@ import type {
   Recipe,
 } from './types';
 
+/** Remove `amount` from an ingredient, soonest-expiring lots first. */
+function deductLots(state: KitchenState, ingredientId: string, amount: number): void {
+  let remaining = amount;
+  for (const lot of sortedLotsFor(state.stockLots, ingredientId)) {
+    if (remaining <= 0) break;
+    const taken = Math.min(lot.amount, remaining);
+    const live = state.stockLots.find((entry) => entry.id === lot.id);
+    if (!live) continue;
+    live.amount -= taken;
+    remaining -= taken;
+  }
+  state.stockLots = state.stockLots.filter((lot) => lot.amount > 0);
+}
+
 export function cookRecipe(catalog: Catalog, state: KitchenState, recipe: Recipe): KitchenState {
   const next = cloneState(state);
   for (const ri of recipe.ingredients) {
     if (isStaple(catalog, ri.ingredientId)) continue;
-    const held = next.stock[ri.ingredientId] ?? 0;
+    const held = totalAmount(next.stockLots, ri.ingredientId);
     if (held <= 0) continue; // missing: untouched
-    const left = held - ri.amount;
-    if (left <= 0) delete next.stock[ri.ingredientId];
-    else next.stock[ri.ingredientId] = left;
+    deductLots(next, ri.ingredientId, ri.amount);
   }
   return next;
 }
@@ -38,7 +52,7 @@ export function cookDeductions(
   const out: Deduction[] = [];
   for (const ri of recipe.ingredients) {
     if (isStaple(catalog, ri.ingredientId)) continue;
-    const held = state.stock[ri.ingredientId] ?? 0;
+    const held = totalAmount(state.stockLots, ri.ingredientId);
     if (held <= 0) continue; // missing: never removed
     const removed = Math.min(held, ri.amount);
     out.push({
@@ -74,14 +88,14 @@ export function addToShoppingList(
   return next;
 }
 
-/** "Got it": the item joins stock, combining with what is there, and leaves the list. */
+/** "Got it": a fresh batch joins stock and the item leaves the list. */
 export function buyShoppingListItem(state: KitchenState, ingredientId: string): KitchenState {
   const next = cloneState(state);
   const index = next.shoppingList.findIndex((item) => item.ingredientId === ingredientId);
   if (index !== -1) {
     const [bought] = next.shoppingList.splice(index, 1);
     if (bought) {
-      next.stock[ingredientId] = (next.stock[ingredientId] ?? 0) + bought.amount;
+      next.stockLots = addLot(next.stockLots, ingredientId, bought.amount);
     }
   }
   return next;
@@ -102,4 +116,9 @@ export function combineAnimationSpec(
     if (ingredient) flying.push(ingredient);
   }
   return { dishEmoji: recipe.dishEmoji, flying };
+}
+
+/** Exposed for the UI: totals without reaching for the old stock map. */
+export function heldTotals(state: KitchenState) {
+  return stockTotals(state.stockLots);
 }

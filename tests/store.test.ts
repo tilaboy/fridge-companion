@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createState } from '../src/domain/state';
 import { clearStoredKitchen } from '../src/domain/storage';
+import { stockTotals } from '../src/domain/lots';
 import type { KitchenState } from '../src/domain/types';
 import {
   STORAGE_KEY,
@@ -11,6 +12,7 @@ import {
   saveState,
 } from '../src/store/localStore';
 import { catalog } from './fixtures';
+import { lotsFor } from './stock';
 
 function makeStorage(initial: Record<string, string> = {}) {
   const data: Record<string, string> = { ...initial };
@@ -34,7 +36,7 @@ function kitchen(): KitchenState {
     { id: 'produce', name: 'Produce' },
     { id: 'dairy', name: 'Dairy' },
   ];
-  state.stock = { tomato: 3, egg: 6 };
+  state.stockLots = lotsFor({ tomato: 3, egg: 6 });
   state.shoppingList = [{ ingredientId: 'onion', amount: 1, fromRecipeId: null }];
   return state;
 }
@@ -61,11 +63,14 @@ describe('loadState', () => {
         shoppingList: [{ ingredientId: 'onion', amount: '2' }, { nope: true }],
       }),
     });
-    expect(loadState(catalog, storage)).toEqual({
-      categories: [{ id: 'pantry', name: 'Pantry' }],
-      stock: { tomato: 2, ghost: 4 }, // unknown kept on load, staples dropped
-      shoppingList: [{ ingredientId: 'onion', amount: 2, fromRecipeId: null }],
-    });
+    const loaded = loadState(catalog, storage);
+    expect(loaded.categories).toEqual([{ id: 'pantry', name: 'Pantry' }]);
+    // Unknown kept on load, staples dropped, v1 stock migrated to lots.
+    expect(stockTotals(loaded.stockLots)).toEqual({ tomato: 2, ghost: 4 });
+    expect(loaded.schemaVersion).toBe(2);
+    expect(loaded.shoppingList).toEqual([
+      { ingredientId: 'onion', amount: 2, fromRecipeId: null },
+    ]);
   });
 
   it('treats corrupt JSON or a blocked read as first use', () => {
@@ -121,7 +126,7 @@ describe('freshKitchen', () => {
   it('is a first visit: seeds adopted, nothing else', () => {
     const state = freshKitchen();
     expect(state.categories).toHaveLength(5);
-    expect(state.stock).toEqual({});
+    expect(state.stockLots).toEqual([]);
     expect(state.shoppingList).toEqual([]);
   });
 });

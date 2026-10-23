@@ -7,8 +7,9 @@ import {
   cookDeductions,
   cookRecipe,
 } from '../../src/domain/cook';
-import { createState } from '../../src/domain/state';
+import { stockTotals } from '../../src/domain/lots';
 import type { Ingredient, KitchenState, Recipe } from '../../src/domain/types';
+import { kitchenWithStock } from '../stock';
 
 const tray: Ingredient[] = [
   { id: 'egg', name: 'Egg', emoji: '🥚', categoryId: 'dairy', unit: 'pcs' },
@@ -31,32 +32,43 @@ const recipe: Recipe = {
 
 const catalog = createCatalog(tray, [recipe]);
 
-function kitchen(stock: Record<string, number>): KitchenState {
-  const state = createState();
-  state.stock = stock;
-  return state;
-}
+const kitchen = (stock: Record<string, number>): KitchenState => kitchenWithStock(stock);
 
 describe('cookRecipe', () => {
   it('takes the full amount when there is enough', () => {
     const next = cookRecipe(catalog, kitchen({ egg: 5, cheese: 100 }), recipe);
-    expect(next.stock).toEqual({ egg: 3, cheese: 50 });
+    expect(stockTotals(next.stockLots)).toEqual({ egg: 3, cheese: 50 });
   });
 
   it('takes what is left when there is not enough, and drops the empty key', () => {
     const next = cookRecipe(catalog, kitchen({ egg: 1, cheese: 20 }), recipe);
-    expect(next.stock).toEqual({});
+    expect(stockTotals(next.stockLots)).toEqual({});
   });
 
   it('never deducts staples or ingredients that are missing', () => {
     const next = cookRecipe(catalog, kitchen({ milk: 2 }), recipe);
-    expect(next.stock).toEqual({ milk: 2 });
+    expect(stockTotals(next.stockLots)).toEqual({ milk: 2 });
+  });
+
+  it('eats the soonest-expiring batch first, keeping later ones whole', () => {
+    const state = kitchen({});
+    state.stockLots = [
+      { id: 'egg-late', ingredientId: 'egg', amount: 4, expiresAt: null, addedAt: '2026-01-02T00:00:00.000Z' },
+      { id: 'egg-soon', ingredientId: 'egg', amount: 1, expiresAt: '2026-10-24', addedAt: '2026-01-03T00:00:00.000Z' },
+      { id: 'cheese-late', ingredientId: 'cheese', amount: 60, expiresAt: '2026-12-01', addedAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'cheese-soon', ingredientId: 'cheese', amount: 40, expiresAt: '2026-10-24', addedAt: '2026-01-01T00:00:00.000Z' },
+    ];
+    const next = cookRecipe(catalog, state, recipe);
+    expect(next.stockLots).toEqual([
+      { id: 'egg-late', ingredientId: 'egg', amount: 3, expiresAt: null, addedAt: '2026-01-02T00:00:00.000Z' },
+      { id: 'cheese-late', ingredientId: 'cheese', amount: 50, expiresAt: '2026-12-01', addedAt: '2026-01-01T00:00:00.000Z' },
+    ]);
   });
 
   it('does not mutate the state it was given', () => {
     const before = kitchen({ egg: 5, cheese: 100 });
     cookRecipe(catalog, before, recipe);
-    expect(before.stock).toEqual({ egg: 5, cheese: 100 });
+    expect(stockTotals(before.stockLots)).toEqual({ egg: 5, cheese: 100 });
   });
 });
 
@@ -106,7 +118,7 @@ describe('buyShoppingListItem', () => {
       { ingredientId: 'egg', amount: 100, fromRecipeId: 'b' },
     ];
     const next = buyShoppingListItem(state, 'egg');
-    expect(next.stock.egg).toBe(8);
+    expect(stockTotals(next.stockLots).egg).toBe(8);
     expect(next.shoppingList).toEqual([
       { ingredientId: 'egg', amount: 100, fromRecipeId: 'b' },
     ]);

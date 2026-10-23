@@ -12,8 +12,9 @@ and its history is carried over here.
 **https://tilaboy.github.io/fridge-companion/** — installable, works offline,
 and can no longer lose a kitchen silently. M1 (the v2 kitchen) is under way: the
 pure domain is now typed modules with a real test suite, and the browser runs a
-Vite-built shell on top of it. Fractions and units, stock lots with expiry,
-custom items, undo, and the v1 → v2 migration are next, per the
+Vite-built shell on top of it. Schema 2 holds stock as lots with optional expiry
+(so the fridge can say "use this first"); v1 kitchens migrate in place. Fractions
+and units, custom items, configurable staples, and undo are next, per the
 [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and

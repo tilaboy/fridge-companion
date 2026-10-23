@@ -21,16 +21,21 @@ import {
   getIngredient,
   getRecipe,
   groupTrayByCategory,
+  expiryLabel,
+  expiryStatus,
   isEmptyKitchen,
   isValidAmount,
   isStaple,
+  soonestExpiry,
   missingIngredients,
   parseAmount,
   parseImportPayload,
   recommend,
   remoteStateFromRaw,
   sameState,
+  stockTotals,
   summarizeState,
+  totalAmount,
 } from './domain/index';
 import { createCatalog } from './domain/catalog';
 import { ingredients } from './data/ingredients';
@@ -86,6 +91,7 @@ const catalog = createCatalog(ingredients, recipes);
     els.promptName = document.getElementById('prompt-name');
     els.promptUnit = document.getElementById('prompt-unit');
     els.promptInput = document.getElementById('amount-input');
+    els.promptExpiry = document.getElementById('amount-expiry');
     els.promptError = document.getElementById('prompt-error');
     els.promptCancel = document.getElementById('prompt-cancel');
     els.recipeView = document.getElementById('recipe-view');
@@ -439,9 +445,17 @@ const catalog = createCatalog(ingredients, recipes);
   }
 
   function trackedStockIds() {
-    return Object.keys(state.stock).filter(function (id) {
-      return !isStaple(catalog, id) && (state.stock[id] || 0) > 0;
+    return Object.keys(stockTotals(state.stockLots)).filter(function (id) {
+      return !isStaple(catalog, id) && totalAmount(state.stockLots, id) > 0;
     });
+  }
+
+  /* The shelf answers "what should I use first?": batches with a date lead,
+   * earliest first, and the badge says how close that date is. */
+  function bySoonestExpiry(a, b) {
+    var aDate = soonestExpiry(state.stockLots, a.id) || '9999-12-31';
+    var bDate = soonestExpiry(state.stockLots, b.id) || '9999-12-31';
+    return aDate < bDate ? -1 : (aDate > bDate ? 1 : a.name.localeCompare(b.name));
   }
 
   /* The inside of the fridge: one shelf per category, the food standing on
@@ -451,7 +465,9 @@ const catalog = createCatalog(ingredients, recipes);
     els.fridgeStock.innerHTML = '';
     var any = false;
     groupTrayByCategory(catalog, state.categories).forEach(function (g) {
-      var stocked = g.items.filter(function (ing) { return (state.stock[ing.id] || 0) > 0; });
+      var stocked = g.items
+        .filter(function (ing) { return totalAmount(state.stockLots, ing.id) > 0; })
+        .sort(bySoonestExpiry);
       if (stocked.length === 0) return;
       any = true;
 
@@ -466,16 +482,24 @@ const catalog = createCatalog(ingredients, recipes);
       var row = document.createElement('div');
       row.className = 'shelf-row';
       stocked.forEach(function (ing) {
-        var held = state.stock[ing.id];
+        var held = totalAmount(state.stockLots, ing.id);
+        var soonest = soonestExpiry(state.stockLots, ing.id);
+        var status = expiryStatus(soonest);
         var item = document.createElement('span');
         item.className = 'stock-item';
-        item.title = ing.name + ' \u2014 ' + held + ' ' + ing.unit;
+        item.title = ing.name + ' \u2014 ' + held + ' ' + ing.unit +
+          (soonest ? (status === 'expired' ? ' \u2014 expired ' : ' \u2014 use by ') + soonest : '');
         item.innerHTML =
           '<span class="stock-emoji" aria-hidden="true">' + ing.emoji + '</span>' +
           '<span class="stock-amount">' +
             (countableUnit(ing.unit) ? '\u00d7' + held : held + ' ' + escapeHtml(ing.unit)) +
-          '</span>';
-        item.setAttribute('aria-label', ing.name + ', ' + held + ' ' + ing.unit);
+          '</span>' +
+          (soonest
+            ? '<span class="stock-expiry stock-expiry-' + status + '">' +
+                escapeHtml(expiryLabel(soonest)) + '</span>'
+            : '');
+        item.setAttribute('aria-label', ing.name + ', ' + held + ' ' + ing.unit +
+          (soonest ? (status === 'expired' ? ', expired ' : ', use by ') + soonest : ''));
         row.appendChild(item);
       });
 
@@ -557,7 +581,9 @@ const catalog = createCatalog(ingredients, recipes);
   }
 
   function makeBubble(g, xPct, yPct, tint) {
-    var stockedCount = g.items.filter(function (ing) { return (state.stock[ing.id] || 0) > 0; }).length;
+    var stockedCount = g.items.filter(function (ing) {
+      return totalAmount(state.stockLots, ing.id) > 0;
+    }).length;
 
     var bubble = document.createElement('div');
     bubble.className = 'bubble';
@@ -641,7 +667,7 @@ const catalog = createCatalog(ingredients, recipes);
   }
 
   function makePick(ing) {
-    var held = state.stock[ing.id] || 0;
+    var held = totalAmount(state.stockLots, ing.id);
 
     var pick = document.createElement('button');
     pick.type = 'button';
@@ -896,7 +922,7 @@ const catalog = createCatalog(ingredients, recipes);
     if (picks.length === 0) {
       // Empty state: no cards, just the friendly message (prd.md > Getting recommendations).
       els.recCards.classList.add('hidden');
-      els.recEmpty.textContent = Object.keys(state.stock).length === 0
+      els.recEmpty.textContent = trackedStockIds().length === 0
         ? 'Uh-oh — your fridge is empty, please refuel.'
         : "Unfortunately, there's nothing fitting.";
       els.recEmpty.classList.remove('hidden');
@@ -959,7 +985,7 @@ const catalog = createCatalog(ingredients, recipes);
     recipe.ingredients.forEach(function (ri) {
       if (isStaple(catalog, ri.ingredientId)) return; // listed separately as assumed
       var ing = getIngredient(catalog, ri.ingredientId);
-      var held = state.stock[ri.ingredientId] || 0;
+      var held = totalAmount(state.stockLots, ri.ingredientId);
       var have = held >= ri.amount;
       var li = document.createElement('li');
       li.className = 'check-item ' + (have ? 'check-have' : 'check-missing');
@@ -1006,7 +1032,7 @@ const catalog = createCatalog(ingredients, recipes);
   function heldIngredientIds(recipe) {
     return recipe.ingredients
       .filter(function (ri) {
-        return !isStaple(catalog, ri.ingredientId) && (state.stock[ri.ingredientId] || 0) > 0;
+        return !isStaple(catalog, ri.ingredientId) && totalAmount(state.stockLots, ri.ingredientId) > 0;
       })
       .map(function (ri) { return ri.ingredientId; });
   }
@@ -1176,6 +1202,7 @@ const catalog = createCatalog(ingredients, recipes);
     els.promptName.textContent = ing.name;
     els.promptUnit.textContent = ing.unit;
     els.promptInput.value = '';
+    els.promptExpiry.value = '';
     els.promptError.classList.add('hidden');
     els.prompt.classList.remove('hidden');
     els.promptInput.focus();
@@ -1194,7 +1221,7 @@ const catalog = createCatalog(ingredients, recipes);
       els.promptError.classList.remove('hidden');
       return;
     }
-    state = addToStock(state, session.promptIngredientId, n);
+    state = addToStock(state, session.promptIngredientId, n, els.promptExpiry.value || null);
     persist(state);
     closePrompt();
     renderAll();
