@@ -96,9 +96,10 @@ while being refreshed in the background. If you change the precache list, bump
   keep only the sizes referenced by the manifest and `index.html`.
 - Deployment: `.github/workflows/ci.yml` runs the harnesses on Node 20 and 22,
   then — on `main` only, after they pass — publishes the repo root to GitHub
-  Pages. Enable Pages **once** in Settings → Pages → Source: **GitHub Actions**;
-  `GITHUB_TOKEN` cannot create the site itself. After that, every green `main`
-  build deploys. `.nojekyll` keeps the shell byte-for-byte.
+  Pages. The Pages site had to be enabled once in Settings → Pages → Source:
+  **GitHub Actions** (`GITHUB_TOKEN` is not allowed to create it); after that,
+  every green `main` build deploys with no further setup. `.nojekyll` keeps the
+  shell byte-for-byte.
 
 ## License
 

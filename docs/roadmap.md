@@ -206,24 +206,25 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 ## 8. Milestones
 
-### M0 — Safe hands (days)
+### M0 — Safe hands ✅ complete 2026-10-23
 
 Make the app reachable, installable, and incapable of silent data loss.
 
-> **Progress (2026-10-23):** every box is closed except the live URL. Verified by
-> harnesses (`verify/slice-5.js`, `slice-6.js`), a headless-Chrome reload with the
-> network emulated off, and a two-tab edit that reached the other tab. The v1 → v2
-> migration this section used to ask for moved to M1, where the v2 schema is built.
+**Live:** https://tilaboy.github.io/fridge-companion/
 
 - [x] Export to versioned JSON; import validates and round-trips; the v2 migration
       lands with M1.
 - [x] Storage failure (quota/blocked) shows a persistent banner; no false success.
 - [x] Cross-tab sync via `BroadcastChannel`, with `storage` events as the fallback.
 - [x] "Reset kitchen" with confirmation; clears only app keys.
-- [ ] Deployed static URL (GitHub Pages) — Pages is enabled on the repo but no
-      deploy has succeeded yet; see README for the one-time setting.
+- [x] Deployed static URL, published by CI after the harnesses pass.
 - [x] PWA manifest, icons, service worker; reload with network off works.
 - [x] Privacy page published (`privacy.html`).
+
+Verified by `verify/slice-5.js` and `slice-6.js`, a headless-Chrome reload of the
+live URL with the network emulated off, and a two-tab edit that reached the other
+tab. The v1 → v2 migration this section used to ask for moved to M1, where the v2
+schema is built.
 
 **Done when:** a user can install it, use it offline, survive a cleared browser
 via export/import, and see a warning when a write fails.
