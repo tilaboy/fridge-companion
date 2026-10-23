@@ -170,8 +170,8 @@
       <h2 id="prompt-title" class="prompt-title"><span id="prompt-emoji" class="prompt-emoji"></span> <span id="prompt-name"></span></h2>
       <label class="prompt-label" for="amount-input">How much do you have?</label>
       <div class="prompt-row">
-        <input id="amount-input" type="number" inputmode="numeric" placeholder="0">
-        <span id="prompt-unit" class="prompt-unit"></span>
+        <input id="amount-input" type="text" inputmode="decimal" placeholder="0" autocomplete="off">
+        <select id="prompt-unit" class="prompt-unit" aria-label="Unit"></select>
       </div>
       <label class="prompt-label" for="amount-expiry">Use by <span class="prompt-hint">optional</span></label>
       <div class="prompt-row">

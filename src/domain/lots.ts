@@ -4,6 +4,7 @@
  * used by. Totals are always derived, never stored, so there is one source of
  * truth and cooking can take the soonest-expiring batch first.
  */
+import { roundAmount } from './amount';
 import type { ExpiryStatus, IngredientId, Stock, StockLot } from './types';
 
 /** A date-only stamp in local time, matching what `<input type="date">` emits. */
@@ -58,7 +59,7 @@ export function addLot(
     {
       id,
       ingredientId,
-      amount,
+      amount: roundAmount(amount),
       expiresAt: normalizeExpiry(expiresAt),
       addedAt: now.toISOString(),
     },
@@ -70,14 +71,14 @@ export function totalAmount(lots: readonly StockLot[], ingredientId: IngredientI
   for (const lot of lots) {
     if (lot.ingredientId === ingredientId) total += lot.amount;
   }
-  return total;
+  return roundAmount(total);
 }
 
 /** All held amounts, for the engine and the render functions. */
 export function stockTotals(lots: readonly StockLot[]): Stock {
   const totals: Stock = {};
   for (const lot of lots) {
-    totals[lot.ingredientId] = (totals[lot.ingredientId] ?? 0) + lot.amount;
+    totals[lot.ingredientId] = roundAmount((totals[lot.ingredientId] ?? 0) + lot.amount);
   }
   return totals;
 }

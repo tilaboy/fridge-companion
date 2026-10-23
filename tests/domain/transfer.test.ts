@@ -149,7 +149,7 @@ describe('sanitizeState', () => {
       ],
     }, { now: NOW });
     expect(clean.categories).toEqual([{ id: 'pantry', name: 'Pantry' }]);
-    expect(stockTotals(clean.stockLots)).toEqual({ tomato: 2 });
+    expect(stockTotals(clean.stockLots)).toEqual({ tomato: 2, egg: 1.5 });
     expect(clean.shoppingList).toEqual([
       { ingredientId: 'onion', amount: 4, fromRecipeId: null },
     ]);

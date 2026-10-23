@@ -27,20 +27,20 @@ export const ingredients: Ingredient[] = [
 
     // Dairy
     { id: 'egg',         name: 'Egg',         emoji: '\uD83E\uDD5A', categoryId: 'dairy',     unit: 'pcs' },
-    { id: 'milk',        name: 'Milk',        emoji: '\uD83E\uDD5B', categoryId: 'dairy',     unit: 'ml', staple: true },
-    { id: 'butter',      name: 'Butter',      emoji: '\uD83E\uDDC8', categoryId: 'dairy',     unit: 'g' },
+    { id: 'milk',        name: 'Milk',        emoji: '\uD83E\uDD5B', categoryId: 'dairy',     unit: 'ml', densityGPerMl: 1.03, staple: true },
+    { id: 'butter',      name: 'Butter',      emoji: '\uD83E\uDDC8', categoryId: 'dairy',     unit: 'g', densityGPerMl: 0.911 },
     { id: 'cheese',      name: 'Cheese',      emoji: '\uD83E\uDDC0', categoryId: 'dairy',     unit: 'g' },
 
     // Pantry
-    { id: 'flour',       name: 'Flour',       emoji: '\uD83C\uDF3E', categoryId: 'pantry',    unit: 'g', staple: true },
-    { id: 'rice',        name: 'Rice',        emoji: '\uD83C\uDF5A', categoryId: 'pantry',    unit: 'g' },
+    { id: 'flour',       name: 'Flour',       emoji: '\uD83C\uDF3E', categoryId: 'pantry',    unit: 'g', densityGPerMl: 0.53, staple: true },
+    { id: 'rice',        name: 'Rice',        emoji: '\uD83C\uDF5A', categoryId: 'pantry',    unit: 'g', densityGPerMl: 0.85 },
     { id: 'pasta',       name: 'Pasta',       emoji: '\uD83C\uDF5D', categoryId: 'pantry',    unit: 'g' },
     { id: 'bread',       name: 'Bread',       emoji: '\uD83C\uDF5E', categoryId: 'pantry',    unit: 'slices' },
-    { id: 'olive_oil',   name: 'Olive Oil',   emoji: '\uD83E\uDED2', categoryId: 'pantry',    unit: 'ml' },
-    { id: 'soy_sauce',   name: 'Soy Sauce',   emoji: '\uD83C\uDF76', categoryId: 'pantry',    unit: 'ml' },
+    { id: 'olive_oil',   name: 'Olive Oil',   emoji: '\uD83E\uDED2', categoryId: 'pantry',    unit: 'ml', densityGPerMl: 0.91 },
+    { id: 'soy_sauce',   name: 'Soy Sauce',   emoji: '\uD83C\uDF76', categoryId: 'pantry',    unit: 'ml', densityGPerMl: 1.15 },
     { id: 'salt',        name: 'Salt',        emoji: '\uD83E\uDDC2', categoryId: 'pantry',    unit: 'g', staple: true },
-    { id: 'sugar',       name: 'Sugar',       emoji: '\uD83C\uDF6C', categoryId: 'pantry',    unit: 'g', staple: true },
-    { id: 'honey',       name: 'Honey',       emoji: '\uD83C\uDF6F', categoryId: 'pantry',    unit: 'g' },
+    { id: 'sugar',       name: 'Sugar',       emoji: '\uD83C\uDF6C', categoryId: 'pantry',    unit: 'g', densityGPerMl: 0.85, staple: true },
+    { id: 'honey',       name: 'Honey',       emoji: '\uD83C\uDF6F', categoryId: 'pantry',    unit: 'g', densityGPerMl: 1.42 },
 
     // Leftovers
     { id: 'cooked_rice', name: 'Cooked Rice', emoji: '\uD83C\uDF5B', categoryId: 'leftovers', unit: 'g' },

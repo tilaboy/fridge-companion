@@ -66,7 +66,8 @@ describe('loadState', () => {
     const loaded = loadState(catalog, storage);
     expect(loaded.categories).toEqual([{ id: 'pantry', name: 'Pantry' }]);
     // Unknown kept on load, staples dropped, v1 stock migrated to lots.
-    expect(stockTotals(loaded.stockLots)).toEqual({ tomato: 2, ghost: 4 });
+    // Fractional amounts are valid now.
+    expect(stockTotals(loaded.stockLots)).toEqual({ tomato: 2, egg: 1.5, ghost: 4 });
     expect(loaded.schemaVersion).toBe(2);
     expect(loaded.shoppingList).toEqual([
       { ingredientId: 'onion', amount: 2, fromRecipeId: null },

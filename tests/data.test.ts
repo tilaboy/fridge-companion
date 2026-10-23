@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SEEDED_CATEGORIES } from '../src/domain/categories';
+import { isUnit } from '../src/domain/units';
 import { ingredients, recipes } from './fixtures';
 
 describe('built-in tray', () => {
@@ -9,6 +10,15 @@ describe('built-in tray', () => {
     const categories = new Set(SEEDED_CATEGORIES.map((c) => c.id));
     for (const ingredient of ingredients) {
       expect(categories.has(ingredient.categoryId), ingredient.id).toBe(true);
+    }
+  });
+
+  it('uses known units and only positive densities', () => {
+    for (const ingredient of ingredients) {
+      expect(isUnit(ingredient.unit), ingredient.id).toBe(true);
+      if (ingredient.densityGPerMl !== undefined) {
+        expect(ingredient.densityGPerMl, ingredient.id).toBeGreaterThan(0);
+      }
     }
   });
 

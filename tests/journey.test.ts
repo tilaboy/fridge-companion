@@ -4,8 +4,10 @@ import {
   addToStock,
   buyShoppingListItem,
   cookRecipe,
+  missingIngredients,
   recommend,
   ensureCategories,
+  toCanonical,
 } from '../src/domain/index';
 import { createState } from '../src/domain/state';
 import { stockTotals } from '../src/domain/lots';
@@ -88,6 +90,20 @@ describe('the core loop', () => {
     picks = recommend(catalog, state);
     const soy = picks.find((p) => p.recipe.id === 'soy_rice_bowl');
     expect(soy).toMatchObject({ have: 3, total: 3, score: 1 });
+  });
+
+  it('lets half a kilo satisfy a recipe that asks for grams', () => {
+    const beef = catalog.ingredientById.get('beef')!;
+    const canonical = toCanonical(beef, 0.5, 'kg');
+    expect(canonical).toBe(500);
+
+    let state = addToStock(createState(), 'beef', canonical!);
+    const bolognese = recipe('beef_bolognese');
+    expect(missingIngredients(catalog, state, bolognese).map((m) => m.ingredientId))
+      .not.toContain('beef');
+
+    state = cookRecipe(catalog, state, bolognese);
+    expect(stockTotals(state.stockLots).beef).toBe(250);
   });
 
   it('recommends nothing from a truly empty fridge', () => {

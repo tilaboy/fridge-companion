@@ -7,6 +7,7 @@
  */
 import {
   SEEDED_CATEGORIES,
+  acceptedUnits,
   addToShoppingList,
   addToStock,
   buyShoppingListItem,
@@ -18,6 +19,7 @@ import {
   createState,
   ensureCategories,
   exportJson,
+  formatAmount,
   getIngredient,
   getRecipe,
   groupTrayByCategory,
@@ -35,6 +37,7 @@ import {
   sameState,
   stockTotals,
   summarizeState,
+  toCanonical,
   totalAmount,
 } from './domain/index';
 import { createCatalog } from './domain/catalog';
@@ -487,18 +490,19 @@ const catalog = createCatalog(ingredients, recipes);
         var status = expiryStatus(soonest);
         var item = document.createElement('span');
         item.className = 'stock-item';
-        item.title = ing.name + ' \u2014 ' + held + ' ' + ing.unit +
+        var heldText = formatAmount(ing, held);
+        item.title = ing.name + ' \u2014 ' + heldText +
           (soonest ? (status === 'expired' ? ' \u2014 expired ' : ' \u2014 use by ') + soonest : '');
         item.innerHTML =
           '<span class="stock-emoji" aria-hidden="true">' + ing.emoji + '</span>' +
           '<span class="stock-amount">' +
-            (countableUnit(ing.unit) ? '\u00d7' + held : held + ' ' + escapeHtml(ing.unit)) +
+            (countableUnit(ing.unit) && Number.isInteger(held) ? '\u00d7' + held : escapeHtml(heldText)) +
           '</span>' +
           (soonest
             ? '<span class="stock-expiry stock-expiry-' + status + '">' +
                 escapeHtml(expiryLabel(soonest)) + '</span>'
             : '');
-        item.setAttribute('aria-label', ing.name + ', ' + held + ' ' + ing.unit +
+        item.setAttribute('aria-label', ing.name + ', ' + heldText +
           (soonest ? (status === 'expired' ? ', expired ' : ', use by ') + soonest : ''));
         row.appendChild(item);
       });
@@ -673,9 +677,10 @@ const catalog = createCatalog(ingredients, recipes);
     pick.type = 'button';
     pick.className = 'pick';
     pick.dataset.ingredientId = ing.id;
+    var heldText = formatAmount(ing, held);
     pick.setAttribute('aria-label', 'Add ' + ing.name +
-      (held > 0 ? ' (you have ' + held + ' ' + ing.unit + ')' : ''));
-    pick.title = ing.name + (held > 0 ? ' — ' + held + ' ' + ing.unit + ' in the fridge' : '');
+      (held > 0 ? ' (you have ' + heldText + ')' : ''));
+    pick.title = ing.name + (held > 0 ? ' — ' + heldText + ' in the fridge' : '');
     pick.innerHTML =
       '<span class="pick-emoji" aria-hidden="true">' + ing.emoji + '</span>' +
       '<span class="pick-name">' + escapeHtml(ing.name) + '</span>' +
@@ -733,7 +738,7 @@ const catalog = createCatalog(ingredients, recipes);
     renderAll();
     if (!doorOpen) setDoor(true); // show it land
     playAddFloat(ing, amount);
-    announce(ing.name + ' +' + amount + ' ' + ing.unit + ' into the fridge');
+    announce(ing.name + ' +' + formatAmount(ing, amount) + ' into the fridge');
     // Re-rendering rebuilt the bubble: put the caret back on the icon.
     var again = els.bubbleField.querySelector('.pick[data-ingredient-id="' + ingredientId + '"]');
     if (again) again.focus({ preventScroll: true });
@@ -754,7 +759,7 @@ const catalog = createCatalog(ingredients, recipes);
     chip.innerHTML =
       '<span class="add-emoji">' + ing.emoji + '</span>' +
       '<span class="add-name">' + escapeHtml(ing.name) + '</span>' +
-      '<span class="add-amount">+' + amount + ' ' + escapeHtml(ing.unit) + '</span>';
+      '<span class="add-amount">+' + escapeHtml(formatAmount(ing, amount)) + '</span>';
     chip.style.left = (rect.left + rect.width / 2) + 'px';
     chip.style.top = (rect.top + rect.height * 0.42) + 'px';
     els.addFloat.appendChild(chip);
@@ -885,7 +890,7 @@ const catalog = createCatalog(ingredients, recipes);
       li.innerHTML =
         '<span class="shop-emoji">' + (ing ? ing.emoji : '') + '</span>' +
         '<span class="shop-name">' + escapeHtml(ing ? ing.name : item.ingredientId) + '</span>' +
-        '<span class="shop-amount">' + item.amount + ' ' + escapeHtml(ing ? ing.unit : '') + '</span>' +
+        '<span class="shop-amount">' + escapeHtml(ing ? formatAmount(ing, item.amount) : String(item.amount)) + '</span>' +
         (fromRecipe ? '<span class="shop-from">for ' + escapeHtml(fromRecipe.name) + '</span>' : '');
       var buy = document.createElement('button');
       buy.type = 'button';
@@ -994,9 +999,9 @@ const catalog = createCatalog(ingredients, recipes);
         '<span class="check-emoji">' + (ing ? ing.emoji : '') + '</span>' +
         '<span class="check-name">' + escapeHtml(ing ? ing.name : ri.ingredientId) + '</span>' +
         '<span class="check-amounts">' + (have
-          ? 'you have ' + held + ' ' + escapeHtml(ing.unit)
-          : 'need ' + ri.amount + ' ' + escapeHtml(ing.unit) +
-            (held > 0 ? ' (you have ' + held + ')' : '')) + '</span>';
+          ? 'you have ' + escapeHtml(formatAmount(ing, held))
+          : 'need ' + escapeHtml(formatAmount(ing, ri.amount)) +
+            (held > 0 ? ' (you have ' + escapeHtml(formatAmount(ing, held)) + ')' : '')) + '</span>';
       els.recipeChecklist.appendChild(li);
     });
 
@@ -1171,7 +1176,7 @@ const catalog = createCatalog(ingredients, recipes);
 
       var amount = document.createElement('span');
       amount.className = 'remove-amount';
-      amount.textContent = '\u2212' + d.removed + ' ' + ing.unit;
+      amount.textContent = '\u2212' + formatAmount(ing, d.removed);
       chip.appendChild(amount);
 
       // Deterministic zig-zag, so a stack of removals stays readable.
@@ -1200,7 +1205,14 @@ const catalog = createCatalog(ingredients, recipes);
     session.promptIngredientId = ingredientId;
     els.promptEmoji.textContent = ing.emoji;
     els.promptName.textContent = ing.name;
-    els.promptUnit.textContent = ing.unit;
+    els.promptUnit.innerHTML = '';
+    acceptedUnits(ing).forEach(function (unit) {
+      var option = document.createElement('option');
+      option.value = unit;
+      option.textContent = unit;
+      els.promptUnit.appendChild(option);
+    });
+    els.promptUnit.value = ing.unit;
     els.promptInput.value = '';
     els.promptExpiry.value = '';
     els.promptError.classList.add('hidden');
@@ -1215,13 +1227,16 @@ const catalog = createCatalog(ingredients, recipes);
 
   function onSubmitAmount(e) {
     e.preventDefault();
-    var n = parseAmount(els.promptInput.value);
-    if (!isValidAmount(n)) {
-      els.promptError.textContent = 'Whole numbers greater than zero, please — like 2 or 200.';
+    var ing = getIngredient(catalog, session.promptIngredientId);
+    var typed = parseAmount(els.promptInput.value);
+    var unit = els.promptUnit.value;
+    var canonical = ing && isValidAmount(typed) ? toCanonical(ing, typed, unit) : null;
+    if (!ing || !isValidAmount(typed) || canonical === null || !isValidAmount(canonical)) {
+      els.promptError.textContent = 'A positive amount, like 2, 0.5, or 1/2.';
       els.promptError.classList.remove('hidden');
       return;
     }
-    state = addToStock(state, session.promptIngredientId, n, els.promptExpiry.value || null);
+    state = addToStock(state, session.promptIngredientId, canonical, els.promptExpiry.value || null);
     persist(state);
     closePrompt();
     renderAll();

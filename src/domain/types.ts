@@ -9,13 +9,20 @@ export type IngredientId = string;
 export type RecipeId = string;
 export type CategoryId = string;
 
+/** A unit the app can read and convert. Canonical units are g, ml, and the
+ * count units; kg/l are accepted at the edge and stored as their base. */
+export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'cloves' | 'slices' | 'bunch';
+
 /** A built-in tray ingredient. Staples are assumed always on hand. */
 export interface Ingredient {
   id: IngredientId;
   name: string;
   emoji: string;
   categoryId: CategoryId;
-  unit: string;
+  /** The canonical unit: every lot and recipe amount is stored in this. */
+  unit: Unit;
+  /** Grams per millilitre, when mass and volume are interchangeable. */
+  densityGPerMl?: number;
   staple?: boolean;
 }
 

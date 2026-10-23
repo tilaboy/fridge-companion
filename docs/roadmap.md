@@ -246,10 +246,16 @@ via export/import, and see a warning when a write fails.
 > date keeps it through reload and cooking, and a seeded v1 kitchen becomes one
 > v2 lot with staples dropped.
 >
-> Next: fraction/decimal amounts and units, custom ingredients/recipes,
-> configurable staples, and undo.
+> Amounts now accept `0.5`, `1/2`, `1 1/2`, and `½`; the prompt offers the
+> ingredient's convertible units, and `½ kg` of beef is stored as 500 g. Mass and
+> volume cross only when the ingredient declares a density (milk, butter, flour,
+> rice, sugar, honey, olive oil, soy sauce), so the app never invents one. The
+> fridge, recipe view, shopping list, and animations all format from the
+> canonical amount.
+>
+> Next: custom ingredients/recipes, configurable staples, and undo.
 
-- [ ] Decimal/fraction amounts; conversion within a dimension; cross-dimension
+- [x] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
 - [x] Stock lots with optional expiry; "use soon" ordering; expired badge.
 - [ ] Custom ingredients and recipes with validation and de-duplication.

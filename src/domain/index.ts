@@ -4,6 +4,7 @@
 export * from './types';
 export * from './catalog';
 export * from './amount';
+export * from './units';
 export * from './lots';
 export * from './state';
 export * from './categories';

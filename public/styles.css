@@ -915,7 +915,18 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 
 .prompt-row input:focus { outline: none; border-color: var(--accent); }
 
-.prompt-unit { font-size: 15px; color: var(--ink-soft); min-width: 44px; }
+.prompt-unit {
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  padding: 9px 8px;
+  border: 1px solid var(--door-edge);
+  border-radius: 12px;
+  background: #fff;
+  min-width: 72px;
+}
+
+.prompt-unit:focus { outline: none; border-color: var(--accent); }
 
 .prompt-error {
   margin: 10px 0 0;
