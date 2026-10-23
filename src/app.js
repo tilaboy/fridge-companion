@@ -32,6 +32,8 @@ import {
   missingIngredients,
   parseAmount,
   parseImportPayload,
+  popUndo,
+  pushUndo,
   recommend,
   remoteStateFromRaw,
   sameState,
@@ -66,6 +68,8 @@ const catalog = createCatalog(ingredients, recipes);
   var openPick = null; // the recommendation currently centered
   var removeFloatTimer = null; // clears the "out of the fridge" float
   var addFloatTimer = null; // clears the quick-add chip
+  var undoStack = []; // in-memory snapshots, newest last
+  var undoTimer = null; // hides the undo bar after a moment
   var doorOpen = false; // is the fridge door swung open?
   var dragState = null; // the icon being dragged toward the fridge
 
@@ -117,6 +121,9 @@ const catalog = createCatalog(ingredients, recipes);
     els.srStatus = document.getElementById('sr-status');
     els.storageBanner = document.getElementById('storage-banner');
     els.storageBannerText = document.getElementById('storage-banner-text');
+    els.undoBar = document.getElementById('undo-bar');
+    els.undoText = document.getElementById('undo-text');
+    els.undoButton = document.getElementById('undo-button');
     els.exportButton = document.getElementById('export-button');
     els.importButton = document.getElementById('import-button');
     els.importFile = document.getElementById('import-file');
@@ -135,6 +142,7 @@ const catalog = createCatalog(ingredients, recipes);
     els.importButton.addEventListener('click', onImportPick);
     els.importFile.addEventListener('change', onImportFile);
     els.resetButton.addEventListener('click', onResetKitchen);
+    els.undoButton.addEventListener('click', onUndo);
     startCrossTabSync();
     registerServiceWorker();
     els.myRecipesButton.addEventListener('click', onMyRecipes);
@@ -271,6 +279,7 @@ const catalog = createCatalog(ingredients, recipes);
       return;
     }
     state = result.state;
+    clearUndo();
     persist(state);
     closePrompt();
     closeRecipeView();
@@ -289,6 +298,7 @@ const catalog = createCatalog(ingredients, recipes);
       return;
     }
     clearStoredKitchen(getStorage());
+    clearUndo();
     state = ensureCategories(createState());
     persist(state);
     closePrompt();
@@ -322,6 +332,7 @@ const catalog = createCatalog(ingredients, recipes);
     var incoming = remoteStateFromRaw(catalog, raw);
     if (!incoming || sameState(incoming, state)) return;
     state = incoming;
+    clearUndo(); // snapshots from before the other tab's change would clobber it
     // A recipe card or pick list built against the old kitchen is stale now.
     closeRecipeView();
     closeRecommendations();
@@ -733,6 +744,7 @@ const catalog = createCatalog(ingredients, recipes);
     var ing = getIngredient(catalog, ingredientId);
     if (!ing) return;
     var amount = defaultAmount(ing);
+    remember('restock', 'Added ' + formatAmount(ing, amount) + ' of ' + ing.name + '.', state);
     state = addToStock(state, ingredientId, amount);
     persist(state);
     renderAll();
@@ -746,6 +758,54 @@ const catalog = createCatalog(ingredients, recipes);
 
   function announce(text) {
     if (els.srStatus) els.srStatus.textContent = text;
+  }
+
+  /* ---------- undo ---------- */
+
+  /* The action already happened, so the snapshot is taken before it. The
+   * whole kitchen is cloned, not just the affected ingredient: an undo has to
+   * put back lots, expiry dates, ids, the shopping list — everything. */
+  function remember(kind, message, before) {
+    undoStack = pushUndo(undoStack, { kind: kind, message: message, state: before });
+    showUndo(message);
+  }
+
+  function showUndo(message) {
+    els.undoText.textContent = message;
+    els.undoBar.classList.remove('hidden');
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hideUndo, 12000);
+  }
+
+  function hideUndo() {
+    clearTimeout(undoTimer);
+    els.undoBar.classList.add('hidden');
+  }
+
+  function clearUndo() {
+    undoStack = [];
+    hideUndo();
+  }
+
+  function onUndo() {
+    var result = popUndo(undoStack);
+    if (!result) {
+      hideUndo();
+      return;
+    }
+    undoStack = result.rest;
+    state = result.entry.state;
+    persist(state);
+    closePrompt();
+    closeRecipeView();
+    closeRecommendations();
+    renderAll();
+    announce('Undid ' + result.entry.kind + '.');
+    if (undoStack.length > 0) {
+      showUndo(undoStack[undoStack.length - 1].message);
+    } else {
+      hideUndo();
+    }
   }
 
   /* The quick add is silent otherwise, so a chip says what went in. */
@@ -905,6 +965,14 @@ const catalog = createCatalog(ingredients, recipes);
   }
 
   function onBuyItem(ingredientId) {
+    var item = null;
+    for (var i = 0; i < state.shoppingList.length; i++) {
+      if (state.shoppingList[i].ingredientId === ingredientId) item = state.shoppingList[i];
+    }
+    var ing = item ? getIngredient(catalog, ingredientId) : null;
+    if (item && ing) {
+      remember('restock', 'Bought ' + formatAmount(ing, item.amount) + ' of ' + ing.name + '.', state);
+    }
     state = buyShoppingListItem(state, ingredientId);
     persist(state);
     renderAll();
@@ -1047,6 +1115,7 @@ const catalog = createCatalog(ingredients, recipes);
     var recipe = openPick.recipe;
     var spec = combineAnimationSpec(catalog, recipe, heldIngredientIds(recipe));
     var taken = cookDeductions(catalog, state, recipe); // read before the stock changes
+    remember('cooking', 'Cooked ' + recipe.name + '.', state);
     state = cookRecipe(catalog, state, recipe); // deducts only what you have
     persist(state);
     closeRecipeView();
@@ -1236,6 +1305,7 @@ const catalog = createCatalog(ingredients, recipes);
       els.promptError.classList.remove('hidden');
       return;
     }
+    remember('restock', 'Added ' + formatAmount(ing, canonical) + ' of ' + ing.name + '.', state);
     state = addToStock(state, session.promptIngredientId, canonical, els.promptExpiry.value || null);
     persist(state);
     closePrompt();

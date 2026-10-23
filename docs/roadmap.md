@@ -233,10 +233,10 @@ via export/import, and see a warning when a write fails.
 
 > **Progress (2026-10-23):** the module split is done. The kernel is typed
 > (`src/domain/`) and tested; the UI is an ES module on top of it, built by Vite
-> into `dist/` and deployed by CI. The six node harnesses were ported into 94
+> into `dist/` and deployed by CI. The six node harnesses were ported into
 > Vitest tests (domain, store, data, journey, shell) before being deleted; a
 > temporary parity suite proved the extraction identical to v1 and retired with
-> the old copy.
+> the old copy. The suite is now 110 tests.
 >
 > Schema 2 now stores `stockLots` (amount, optional expiry, arrival time) and
 > derives every total; cooking consumes the soonest-expiring batch first. The
@@ -253,14 +253,23 @@ via export/import, and see a warning when a write fails.
 > fridge, recipe view, shopping list, and animations all format from the
 > canonical amount.
 >
-> Next: custom ingredients/recipes, configurable staples, and undo.
+> Undo now covers cooking, adding stock, and checking off a shopping-list item.
+> Each commit pushes a whole-kitchen snapshot onto a bounded in-memory stack
+> (20 entries); the toast names the action, and the button restores lots,
+> expiry dates, ids, and the list exactly, then offers the previous step. The
+> stack clears on import, reset, and cross-tab changes so it can never clobber
+> another tab. Verified in Chrome: cook then undo restores byte-identical
+> storage; two undos return the initial empty kitchen; a purchase undoes back to
+> the same list.
+>
+> Next: custom ingredients/recipes and configurable staples.
 
 - [x] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
 - [x] Stock lots with optional expiry; "use soon" ordering; expired badge.
 - [ ] Custom ingredients and recipes with validation and de-duplication.
 - [ ] Configurable staples per user.
-- [ ] Undo for cook and restock; confirmation for destructive actions.
+- [x] Undo for cook and restock; confirmation for destructive actions.
 - [x] Idempotent v1 → v2 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is

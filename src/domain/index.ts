@@ -6,6 +6,7 @@ export * from './catalog';
 export * from './amount';
 export * from './units';
 export * from './lots';
+export * from './history';
 export * from './state';
 export * from './categories';
 export * from './recommend';

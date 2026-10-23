@@ -16,8 +16,9 @@ Vite-built shell on top of it. Schema 2 holds stock as lots with optional expiry
 (so the fridge can say "use this first"); v1 kitchens migrate in place. Amounts
 now take fractions and units: `½ kg` of beef is stored as `500 g` and satisfies
 a `250 g` recipe, and mass ↔ volume converts when the ingredient declares a
-density. Custom items, configurable staples, and undo are next, per the
-[production roadmap](docs/roadmap.md).
+density. Cooking, restocking, and shopping purchases can be undone from a
+toast that restores the exact prior kitchen. Custom items and configurable
+staples are next, per the [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and
 [IndexedDB with sync deferred past v1](docs/adr/0002-storage-and-sync.md).
