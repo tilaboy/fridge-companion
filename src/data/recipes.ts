@@ -1,12 +1,13 @@
-/* Built-in recipe collection (spec > Components > Built-in data files).
+/* Built-in recipe collection.
  *
- * Every ingredient here exists in the built-in tray (data/ingredients.js) —
- * including the staples (salt, sugar, flour, milk), which recipes may call
- * for even though the app assumes they are always on hand. */
-(function (root) {
-  'use strict';
+ * Every ingredient here exists in the built-in tray
+ * (`src/data/ingredients.ts`) — including the staples (salt, sugar, flour,
+ * milk), which recipes may call for even though the app assumes they are
+ * always on hand.
+ */
+import type { Recipe } from '../domain/types';
 
-  var recipes = [
+export const recipes: Recipe[] = [
     {
       id: 'scrambled_eggs',
       name: 'Scrambled Eggs',
@@ -608,10 +609,3 @@
       ]
     }
   ];
-
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = recipes;
-  } else {
-    root.FDC_RECIPES = recipes;
-  }
-})(typeof window !== 'undefined' ? window : globalThis);

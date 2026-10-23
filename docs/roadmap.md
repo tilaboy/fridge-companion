@@ -217,25 +217,28 @@ Make the app reachable, installable, and incapable of silent data loss.
 - [x] Storage failure (quota/blocked) shows a persistent banner; no false success.
 - [x] Cross-tab sync via `BroadcastChannel`, with `storage` events as the fallback.
 - [x] "Reset kitchen" with confirmation; clears only app keys.
-- [x] Deployed static URL, published by CI after the harnesses pass.
+- [x] Deployed static URL, published by CI after the checks pass.
 - [x] PWA manifest, icons, service worker; reload with network off works.
 - [x] Privacy page published (`privacy.html`).
 
-Verified by `verify/slice-5.js` and `slice-6.js`, a headless-Chrome reload of the
-live URL with the network emulated off, and a two-tab edit that reached the other
-tab. The v1 → v2 migration this section used to ask for moved to M1, where the v2
-schema is built.
+Verified at the time by the six node harnesses (since ported into `tests/`), a
+headless-Chrome reload of the live URL with the network emulated off, and a
+two-tab edit that reached the other tab. The v1 → v2 migration this section used
+to ask for moved to M1, where the v2 schema is built.
 
 **Done when:** a user can install it, use it offline, survive a cleared browser
 via export/import, and see a warning when a write fails.
 
 ### M1 — A fridge you can trust (1–2 weeks)
 
-> **Progress (2026-10-23):** the domain kernel is extracted into typed modules
-> (`src/domain/`) and covered by 69 Vitest tests, including a parity suite that
-> feeds the same inputs to the new code and to `app.js` and fails on any
-> difference. The UI still runs the v1 functions; swapping it onto the domain is
-> the next slice, then the v2 schema and migration.
+> **Progress (2026-10-23):** the module split is done. The kernel is typed
+> (`src/domain/`) and tested; the UI is an ES module on top of it, built by Vite
+> into `dist/` and deployed by CI. The six node harnesses were ported into 80
+> Vitest tests (domain, store, data, journey, shell) before being deleted; a
+> temporary parity suite proved the extraction identical to v1 and retired with
+> the old copy. Verified end to end in Chrome: add → recommend → cook, plus an
+> offline reload of the built shell. Next: the v2 schema, units, lots, custom
+> items, undo, and the migration.
 
 - [ ] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.

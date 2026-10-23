@@ -10,8 +10,10 @@ and its history is carried over here.
 
 **M0 (safe hands) is done.** Live at
 **https://tilaboy.github.io/fridge-companion/** — installable, works offline,
-and can no longer lose a kitchen silently. Next up: M1, the v2 kitchen (fractions
-and units, stock lots with expiry, custom items, undo) per the
+and can no longer lose a kitchen silently. M1 (the v2 kitchen) is under way: the
+pure domain is now typed modules with a real test suite, and the browser runs a
+Vite-built shell on top of it. Fractions and units, stock lots with expiry,
+custom items, undo, and the v1 → v2 migration are next, per the
 [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and
@@ -28,7 +30,8 @@ What M0 added:
 - A PWA shell: manifest, generated icons, and a service worker that reloads
   with the network off.
 - A privacy page that says plainly what is stored and where.
-- CI running every harness on push, then deploying `main` to GitHub Pages.
+- CI running typecheck, tests, and a production build on push, then deploying
+  `main` to GitHub Pages.
 
 ## Watch it first
 
@@ -41,12 +44,17 @@ What M0 added:
 From this folder:
 
 ```
-python3 -m http.server 8000
+npm ci
+npm run dev
 ```
 
-Then open <http://localhost:8000>.
+Then open the URL Vite prints (usually <http://localhost:5173>). `npm run build`
+produces the deployable shell in `dist/`; `npm run preview` serves that build
+locally, including the service worker.
 
-Use the local server rather than double-clicking `index.html`: opening the file directly (`file://`) makes browser storage behave inconsistently across browsers (see `devpost/spec.md > Where It Runs and How Someone Tries It`).
+Open it over `http://` rather than double-clicking `index.html`: `file://` makes
+browser storage behave inconsistently across browsers, and the module build
+cannot load from it (see `devpost/spec.md > Where It Runs and How Someone Tries It`).
 
 ## Try it
 
@@ -67,49 +75,52 @@ app opens with the network off.
 
 The worker is deliberately update-friendly: navigations are network-first, so a
 deploy is picked up on the next load online, and assets are served from cache
-while being refreshed in the background. If you change the precache list, bump
-`CACHE` in `sw.js` so stale entries are dropped.
+while being refreshed in the background. The build stamps the cache name and the
+hashed bundle names into `sw.js`, so a changed build automatically lands in a
+fresh cache and the old one is dropped.
 
 ## For developers
 
-- The browser still runs `app.js` as a classic script with no build step, but the
-  pure domain now lives in typed modules under `src/domain/` (see ADR-001). The
-  UI moves onto those modules next; until then a parity suite feeds the same
-  inputs to both implementations and fails on any drift. Vite takes over the
-  build when the UI imports the domain directly.
+- Vite builds one module entry (`src/app.js`) into `dist/`; no UI framework.
+  `src/domain/` is TypeScript and has no DOM or storage access (ADR-001).
 - Setup: `npm ci`, then `npm run typecheck` and `npm test`. `npm run dev` serves
-  the current shell for browser work (no build step yet).
+  the source; `npm run build` emits `dist/` and stamps the service worker.
 - `src/domain/` — the DOM-free kernel: state, amounts, categories, scoring,
   cook/shop actions, export/import. It takes a `Catalog` instead of reaching for
   globals, so tests can build a three-ingredient world. `tests/domain/` covers it
-  with Vitest, including `parity.test.ts` against the v1 functions in `app.js`.
-- `data/ingredients.js` — the built-in ingredient tray; `data/recipes.js` — the built-in recipe collection.
+  with Vitest.
+- `src/store/localStore.ts` — the localStorage boundary: load, save, raw read,
+  reset. It takes a storage object, so tests never need a browser.
+- `src/app.js` — the UI: rendering, gestures, cross-tab sync, and export/import
+  wiring. It imports the domain and builds the catalog once.
+- `src/data/ingredients.ts` — the built-in ingredient tray;
+  `src/data/recipes.ts` — the built-in recipe collection, both typed.
 - `docs/` — the [roadmap](docs/roadmap.md) and the [ADRs](docs/adr/). Read ADR-002
   before changing anything about storage.
 - `devpost/` — the planning documents (scope, PRD, spec) and the build checklist that tracks progress. Hackathon history, kept for provenance.
 - The door is one screen: a fridge in the middle with one bubble per category hung either side, placed by percentage on a fixed-height stage so nothing is measured at runtime (below 1000px the bubbles drop under the fridge as a two-up grid). Categories are edited in the disclosure under the fridge rather than on a first-use screen. The icon drag is a pointer drag (not HTML5 drag-and-drop) so it can be exercised end to end by the harnesses.
 - Your kitchen keeps the categories you chose. If the built-in data later gains a category (Meat & Fish, for example), its ingredients show up under a trailing **Other** bubble until you tick that category on in **Rename or add categories**.
-- `verify/` — node harnesses for each build slice. `node verify/all.js` (or
-  `npm run verify`) runs all of them in separate processes; CI does exactly that.
-  `verify/slice-4.js` walks the whole journey end to end (first open → add →
-  recommend → cook → shop → recommend again), `verify/slice-5.js` covers
-  export/import and the files it refuses, and `verify/slice-6.js` covers reset,
-  cross-tab reconciliation, the PWA shell (manifest fields, real icon dimensions,
-  every precached file), and the privacy page.
-- Export/import and cross-tab reconciliation live in `app.js` as pure functions
-  (`buildExport`, `exportJson`, `parseImportPayload`, `remoteStateFromRaw`)
-  so the harnesses can test them without a browser; the UI only wires them to
-  file input, download, and a `BroadcastChannel`. The typed versions are in
-  `src/domain/transfer.ts`.
+- `tests/` — Vitest. `tests/domain/` covers the kernel, `tests/store.test.ts` the
+  storage boundary, `tests/journey.test.ts` walks first open → add → recommend →
+  cook → shop → recommend again, `tests/data.test.ts` checks the built-in data,
+  and `tests/shell.test.ts` checks the manifest, icons, privacy page, module
+  entry, element ids, and every file the worker precaches.
+- Export/import and cross-tab reconciliation live in `src/domain/transfer.ts`;
+  the UI only wires them to file input, download, and a `BroadcastChannel`.
+- `public/` — files copied to the site root unchanged: `styles.css`, the
+  manifest, `sw.js`, `privacy.html`, icons, and `.nojekyll`.
+- `tools/postbuild.mjs` runs after Vite: it reads the built `index.html`, appends
+  the hashed bundle to the worker's precache list, and names the cache from the
+  build contents, so there is no manual version to bump.
 - `tools/make-icons.py` regenerates the PWA icons with no image library. It
-  writes 1024px sources; derive the rest with `sips` (`sips -z 512 512 …`) and
-  keep only the sizes referenced by the manifest and `index.html`.
-- Deployment: `.github/workflows/ci.yml` runs the harnesses on Node 20 and 22,
-  then — on `main` only, after they pass — publishes the repo root to GitHub
-  Pages. The Pages site had to be enabled once in Settings → Pages → Source:
-  **GitHub Actions** (`GITHUB_TOKEN` is not allowed to create it); after that,
-  every green `main` build deploys with no further setup. `.nojekyll` keeps the
-  shell byte-for-byte.
+  writes 1024px sources to `public/icons/`; derive the rest with `sips`
+  (`sips -z 512 512 …`) and keep only the sizes referenced by the manifest and
+  `index.html`.
+- Deployment: `.github/workflows/ci.yml` runs typecheck, tests, and the build on
+  Node 20 and 22, then — on `main` only — builds again and publishes `dist/` to
+  GitHub Pages. The Pages site had to be enabled once in Settings → Pages →
+  Source: **GitHub Actions** (`GITHUB_TOKEN` is not allowed to create it); after
+  that, every green `main` build deploys with no further setup.
 
 ## License
 

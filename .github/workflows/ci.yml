@@ -35,11 +35,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Unit and parity tests
+      - name: Unit and integration tests
         run: npm test
 
-      - name: Run every verification harness
-        run: node verify/all.js
+      - name: Build the static shell
+        run: npm run build
 
   deploy:
     name: deploy to GitHub Pages
@@ -59,15 +59,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build the static shell
+        run: npm run build
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      - name: Upload the static shell
+      - name: Upload the built shell
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: dist
 
       - name: Deploy
         id: deployment

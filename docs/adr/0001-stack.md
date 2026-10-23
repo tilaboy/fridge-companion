@@ -36,6 +36,19 @@ question was whether that justifies a framework and/or TypeScript.
    `src/domain` split in M1 introduces TypeScript incrementally with `allowJs`
    + `checkJs`, so the kernel is typed before the UI is.
 
+## Implementation note (2026-10-23)
+
+The split landed in two slices: the kernel was extracted into strict TypeScript
+and proved identical to v1 with a temporary parity suite; then the UI was moved
+onto it as an ES module, Vite took over the build, and Pages started publishing
+`dist/` instead of the repo root. The six node harnesses were ported into
+Vitest before deletion, so no coverage was dropped.
+
+Two parts of decision 6 are deliberately still open: the UI is `src/app.js` (an
+ES module, untyped) rather than `checkJs`-checked TypeScript, and the parity
+suite is gone now that there is only one implementation. Typing the UI, adding
+zod at the edges, and the Playwright smoke test remain follow-ups inside M1/M4.
+
 ## Consequences
 
 - The data model becomes executable documentation; import validation and

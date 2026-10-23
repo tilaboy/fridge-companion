@@ -1,21 +1,18 @@
-/* Built-in ingredient tray (spec > Components > Built-in data files).
+/* Built-in ingredient tray.
  *
- * `categoryId` matches the seeded category ids in app.js, so the fridge door
- * can group the tray by whatever the user confirmed at first use.
+ * `categoryId` matches the seeded category ids in the domain, so the fridge
+ * door can group the tray by whatever the user kept at first use.
  *
  * `staple: true` marks an ingredient the app assumes is always in the kitchen
  * (salt, sugar, flour, milk). Staples are never tracked in stock, never shown
  * in the tray, never counted in the "you have X/Y" score, and never sent to
  * the shopping list — but recipes may still call for them, and the recipe view
- * lists them as assumed. They stay in this file so recipes keep a single
- * source for names, emoji, and units.
- *
- * Loaded as a plain script before app.js; in node (verification harnesses)
- * the same file is require()d. */
-(function (root) {
-  'use strict';
+ * lists them as assumed. They stay here so recipes keep a single source for
+ * names, emoji, and units.
+ */
+import type { Ingredient } from '../domain/types';
 
-  var ingredients = [
+export const ingredients: Ingredient[] = [
     // Produce
     { id: 'tomato',      name: 'Tomato',      emoji: '\uD83C\uDF45', categoryId: 'produce',   unit: 'pcs' },
     { id: 'onion',       name: 'Onion',       emoji: '\uD83E\uDDC5', categoryId: 'produce',   unit: 'pcs' },
@@ -58,10 +55,3 @@
     { id: 'salmon',      name: 'Salmon',      emoji: '\uD83D\uDC1F', categoryId: 'meat',      unit: 'g' },
     { id: 'tuna',        name: 'Tuna',        emoji: '\uD83D\uDC20', categoryId: 'meat',      unit: 'g' }
   ];
-
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ingredients;
-  } else {
-    root.FDC_INGREDIENTS = ingredients;
-  }
-})(typeof window !== 'undefined' ? window : globalThis);

@@ -1,500 +1,49 @@
-/* Fridge Door Companion — application logic.
- *
- * Plain HTML/CSS/JS, no framework, no build step (spec > Stack).
- * Three sections, in dependency order:
- *   1. Pure logic — state shape, amount validation, stock math, tray grouping.
- *      No DOM and no storage access, so the same code runs under node for the
- *      mechanical verification harnesses (verify/slice-*.js).
- *   2. Store — browser storage via localStorage (spec > Components > The store):
- *      one versioned key, loaded on start, rewritten on every change.
- *   3. UI — rendering and events, browser only.
+/* Fridge Door Companion — the browser UI.
+
+ * Rendering, events, and the store wiring. The kitchen rules themselves live
+ * in `src/domain/`; this file only decides how they look and what a gesture
+ * means. The catalog is built once here and passed to the domain explicitly,
+ * so nothing reaches for browser globals.
  */
-(function (root) {
-  'use strict';
+import {
+  SEEDED_CATEGORIES,
+  addToShoppingList,
+  addToStock,
+  buyShoppingListItem,
+  clearStoredKitchen,
+  combineAnimationSpec,
+  confirmCategories,
+  cookDeductions,
+  cookRecipe,
+  createState,
+  ensureCategories,
+  exportJson,
+  getIngredient,
+  getRecipe,
+  groupTrayByCategory,
+  isEmptyKitchen,
+  isValidAmount,
+  isStaple,
+  missingIngredients,
+  parseAmount,
+  parseImportPayload,
+  recommend,
+  remoteStateFromRaw,
+  sameState,
+  summarizeState,
+} from './domain/index';
+import { createCatalog } from './domain/catalog';
+import { ingredients } from './data/ingredients';
+import { recipes } from './data/recipes';
+import {
+  STORAGE_KEY,
+  getStorage,
+  loadState,
+  readRawState,
+  saveState,
+} from './store/localStore';
 
-  /* ================================================================== *
-   * Built-in data
-   * ================================================================== */
-
-  var ingredients = root.FDC_INGREDIENTS || [];
-  var recipes = root.FDC_RECIPES || [];
-
-  function getIngredient(id) {
-    for (var i = 0; i < ingredients.length; i++) {
-      if (ingredients[i].id === id) return ingredients[i];
-    }
-    return null;
-  }
-
-  function getRecipe(id) {
-    for (var i = 0; i < recipes.length; i++) {
-      if (recipes[i].id === id) return recipes[i];
-    }
-    return null;
-  }
-
-  /* Staples are assumed always on hand (spec > Data Model > Staples): never
-   * tracked in stock, never shown in the tray, never counted in a recipe's
-   * score, never sent to the shopping list. Derived from the tray data so
-   * data/ingredients.js stays the single source of truth. */
-  var STAPLE_IDS = {};
-  ingredients.forEach(function (ing) { if (ing.staple) STAPLE_IDS[ing.id] = true; });
-
-  function isStaple(id) {
-    return !!STAPLE_IDS[id];
-  }
-
-  /* ================================================================== *
-   * 1. Pure logic
-   * ================================================================== */
-
-  var STORAGE_KEY = 'fdc-state-v1';
-
-  var SEEDED_CATEGORIES = [
-    { id: 'produce',   name: 'Produce' },
-    { id: 'dairy',     name: 'Dairy' },
-    { id: 'pantry',    name: 'Pantry' },
-    { id: 'leftovers', name: 'Leftovers' },
-    { id: 'meat',      name: 'Meat & Fish' }
-  ];
-
-  function createState() {
-    return { categories: [], stock: {}, shoppingList: [] };
-  }
-
-  function cloneState(state) {
-    return {
-      categories: state.categories.map(function (c) { return { id: c.id, name: c.name }; }),
-      stock: Object.assign({}, state.stock),
-      shoppingList: state.shoppingList.map(function (i) {
-        return { ingredientId: i.ingredientId, amount: i.amount, fromRecipeId: i.fromRecipeId || null };
-      })
-    };
-  }
-
-  /* The amount prompt accepts positive whole numbers only and refuses the
-   * rest, so bad values never reach the store (spec > Important Failure
-   * Modes). parseAmount turns whatever the user typed into a number or
-   * null; isValidAmount is the gate. */
-  function parseAmount(raw) {
-    if (raw === null || raw === undefined) return null;
-    var text = String(raw).trim();
-    if (text === '') return null;
-    var n = Number(text);
-    if (!isFinite(n)) return null;
-    return n;
-  }
-
-  function isValidAmount(n) {
-    return typeof n === 'number' && isFinite(n) && Math.floor(n) === n && n > 0;
-  }
-
-  /* Re-adding an ingredient combines amounts (prd.md > Open Questions,
-   * assumed: 2 eggs + 3 eggs = 5). Returns a new state; never mutates. */
-  function addToStock(state, ingredientId, amount) {
-    var next = cloneState(state);
-    next.stock[ingredientId] = (next.stock[ingredientId] || 0) + amount;
-    return next;
-  }
-
-  function validCategory(c) {
-    return !!c && typeof c.id === 'string' && c.id !== '' &&
-      typeof c.name === 'string' && c.name.trim() !== '';
-  }
-
-  /* Build the final category list from the setup screen's confirmed
-   * choices: valid, unique, trimmed. */
-  function confirmCategories(chosen) {
-    var seen = {};
-    var categories = [];
-    (chosen || []).forEach(function (c) {
-      if (!validCategory(c) || seen[c.id]) return;
-      seen[c.id] = true;
-      categories.push({ id: c.id, name: c.name.trim() });
-    });
-    return categories;
-  }
-
-  /* The app opens straight onto the fridge door, so a first visit (or cleared
-   * browser data) adopts the seeded categories instead of confirming them on
-   * a setup screen (spec > Components > Categories). Categories are edited
-   * later, in the tray panel's disclosure. A state that already has
-   * categories is returned untouched. */
-  function ensureCategories(state) {
-    if (state.categories.length > 0) return state;
-    var next = cloneState(state);
-    next.categories = confirmCategories(SEEDED_CATEGORIES);
-    return next;
-  }
-
-  /* Group the built-in tray by the user's categories, in the user's own
-   * order. Categories with no tray ingredients are skipped. An ingredient
-   * whose category the user does not have (a category added to the built-in
-   * data after they set up, for example) lands in a trailing "Other" group
-   * rather than silently disappearing. */
-  function groupTrayByCategory(categories) {
-    var byId = {};
-    (categories || []).forEach(function (c) { byId[c.id] = []; });
-    var loose = [];
-    ingredients.forEach(function (ing) {
-      if (byId[ing.categoryId]) byId[ing.categoryId].push(ing);
-      else loose.push(ing);
-    });
-    var groups = (categories || [])
-      .map(function (c) { return { category: c, items: byId[c.id] }; })
-      .filter(function (g) { return g.items.length > 0; });
-    if (loose.length > 0) {
-      groups.push({ category: { id: '__other', name: 'Other' }, items: loose });
-    }
-    return groups;
-  }
-
-  /* ================================================================== *
-   * The recommendation engine (spec > Components > Recommendation engine)
-   * ================================================================== */
-
-  /* Score one recipe against the stock: the share of its ingredients the
-   * user holds in sufficient amount. The amount-level check means needing
-   * 200 g with 100 g in stock counts as missing (spec > Data Model).
-   * Staples are excluded from both sides — they are assumed on hand. */
-  function scoreRecipe(recipe, stock) {
-    var have = 0;
-    var total = 0;
-    recipe.ingredients.forEach(function (ri) {
-      if (isStaple(ri.ingredientId)) return;
-      total += 1;
-      if ((stock[ri.ingredientId] || 0) >= ri.amount) have += 1;
-    });
-    return {
-      recipe: recipe,
-      have: have,
-      missing: total - have,
-      total: total,
-      score: total === 0 ? 0 : have / total
-    };
-  }
-
-  /* The length bias the learner asked for at the final review: a short recipe
-   * is far easier to complete, so without it the picks skew short. Ranking
-   * weight = fit × (1 + LENGTH_BONUS × tracked ingredients), so a
-   * three-ingredient recipe carries ×1.3 and a five-ingredient one ×1.5.
-   * `score` itself stays the honest fit ratio the cards display — only the
-   * order changes. Consequence, accepted knowingly: a nearly-complete long
-   * recipe can now outrank a complete short one. */
-  var LENGTH_BONUS = 0.1;
-
-  function lengthMultiplier(total) {
-    return 1 + LENGTH_BONUS * total;
-  }
-
-  /* The matching rule, with the length bias applied: fit × length, tie-broken
-   * by fewest missing, then by id for a stable order. Only recipes with at
-   * least one ingredient in hand are candidates; the top 2-3 come back
-   * (prd.md > Product Decisions). */
-  function recommend(state, recipeList) {
-    var list = recipeList || recipes;
-    return list
-      .map(function (r) {
-        var scored = scoreRecipe(r, state.stock);
-        scored.rank = scored.score * lengthMultiplier(scored.total);
-        return scored;
-      })
-      .filter(function (s) { return s.have > 0; })
-      .sort(function (a, b) {
-        if (b.rank !== a.rank) return b.rank - a.rank;             // fit × length
-        if (a.missing !== b.missing) return a.missing - b.missing;  // then fewest missing
-        return a.recipe.id < b.recipe.id ? -1 : 1;                 // stable order
-      })
-      .slice(0, 3);
-  }
-
-  /* ================================================================== *
-   * Commit actions (spec > Components > Commit actions)
-   * ================================================================== */
-
-  /* The ingredients a recipe is missing: held in less than the required
-   * amount — the same amount-level rule the engine scores with. Staples are
-   * never "missing" (they are assumed on hand, and never shopped for). */
-  function missingIngredients(state, recipe) {
-    return recipe.ingredients
-      .filter(function (ri) {
-        return !isStaple(ri.ingredientId) && (state.stock[ri.ingredientId] || 0) < ri.amount;
-      })
-      .map(function (ri) { return { ingredientId: ri.ingredientId, amount: ri.amount }; });
-  }
-
-  /* "Cook this": deduct each ingredient the user actually has — the full
-   * recipe amount when there is enough, otherwise whatever is left, never
-   * below zero. Ingredients that reach 0 drop off the fridge display
-   * (spec > Data Model), so their key is removed. Staples are never
-   * deducted: they are assumed on hand. Returns a new state. */
-  function cookRecipe(state, recipe) {
-    var next = cloneState(state);
-    recipe.ingredients.forEach(function (ri) {
-      if (isStaple(ri.ingredientId)) return;
-      var held = next.stock[ri.ingredientId] || 0;
-      if (held <= 0) return; // missing: untouched
-      var left = held - ri.amount;
-      if (left <= 0) delete next.stock[ri.ingredientId];
-      else next.stock[ri.ingredientId] = left;
-    });
-    return next;
-  }
-
-  /* What one "Cook this" actually takes out of the fridge: for every
-   * ingredient the kitchen holds, how much is removed and what is left.
-   * Staples are never removed; missing ingredients never appear. Pure data,
-   * so the harness can check it without a browser and the UI can show the
-   * removal as it happens. */
-  function cookDeductions(state, recipe) {
-    var out = [];
-    recipe.ingredients.forEach(function (ri) {
-      if (isStaple(ri.ingredientId)) return;
-      var held = state.stock[ri.ingredientId] || 0;
-      if (held <= 0) return; // missing: never removed
-      var removed = Math.min(held, ri.amount);
-      out.push({
-        ingredientId: ri.ingredientId,
-        removed: removed,
-        before: held,
-        after: held - removed
-      });
-    });
-    return out;
-  }
-
-  /* "Generate the shopping list": the missing ingredients, each with the
-   * recipe's quantity. An ingredient already on the list is not duplicated
-   * (the first recipe's quantity stands). Returns a new state. */
-  function addToShoppingList(state, recipe) {
-    var next = cloneState(state);
-    var listed = {};
-    next.shoppingList.forEach(function (item) { listed[item.ingredientId] = true; });
-    missingIngredients(state, recipe).forEach(function (m) {
-      if (listed[m.ingredientId]) return;
-      listed[m.ingredientId] = true;
-      next.shoppingList.push({
-        ingredientId: m.ingredientId,
-        amount: m.amount,
-        fromRecipeId: recipe.id
-      });
-    });
-    return next;
-  }
-
-  /* "Got it": the item joins stock with the recipe's quantity — combining
-   * with whatever is already there — and leaves the list (spec >
-   * Components > Shopping list card). Returns a new state. */
-  function buyShoppingListItem(state, ingredientId) {
-    var next = cloneState(state);
-    var bought = null;
-    next.shoppingList = next.shoppingList.filter(function (item) {
-      if (item.ingredientId === ingredientId && !bought) {
-        bought = item;
-        return false;
-      }
-      return true;
-    });
-    if (bought) next.stock[ingredientId] = (next.stock[ingredientId] || 0) + bought.amount;
-    return next;
-  }
-
-  /* What the combining animation flies: the committed ingredient tiles,
-   * resolved from the tray, converging on the dish emoji (spec >
-   * Components > Combining animation). Pure data so the harness can
-   * check it without a browser. */
-  function combineAnimationSpec(recipe, ingredientIds) {
-    var seen = {};
-    var flying = [];
-    (ingredientIds || []).forEach(function (id) {
-      if (seen[id]) return;
-      seen[id] = true;
-      var ing = getIngredient(id);
-      if (ing) flying.push(ing);
-    });
-    return { dishEmoji: recipe.dishEmoji, flying: flying };
-  }
-
-  /* ================================================================== *
-   * 2. Store — browser storage
-   * ================================================================== */
-
-  function getStorage() {
-    try {
-      if (typeof localStorage !== 'undefined' && localStorage) return localStorage;
-    } catch (e) { /* storage blocked (private mode, etc.) — run in memory */ }
-    return null;
-  }
-
-  /* Storage is user data that could be stale, hand-edited, or corrupt.
-   * Sanitize on load: drop anything that doesn't match the data model
-   * (spec > Data Model). `knownOnly` is for imported files, where a reference
-   * to an ingredient or recipe this build does not have is junk rather than
-   * something to keep. */
-  function sanitizeState(parsed, options) {
-    var knownOnly = !!(options && options.knownOnly);
-    var fresh = createState();
-    if (!parsed || typeof parsed !== 'object') return fresh;
-
-    if (Array.isArray(parsed.categories)) {
-      fresh.categories = confirmCategories(parsed.categories);
-    }
-    if (parsed.stock && typeof parsed.stock === 'object' && !Array.isArray(parsed.stock)) {
-      Object.keys(parsed.stock).forEach(function (id) {
-        var n = Number(parsed.stock[id]);
-        // Staples are no longer tracked, so drop any left behind by an
-        // earlier version of the app.
-        if (!isValidAmount(n) || isStaple(id)) return;
-        if (knownOnly && !getIngredient(id)) return;
-        fresh.stock[id] = n;
-      });
-    }
-    if (Array.isArray(parsed.shoppingList)) {
-      fresh.shoppingList = parsed.shoppingList.filter(function (item) {
-        return !!item && typeof item.ingredientId === 'string' &&
-          isValidAmount(Number(item.amount)) &&
-          (!knownOnly || !!getIngredient(item.ingredientId));
-      }).map(function (item) {
-        var fromRecipeId = typeof item.fromRecipeId === 'string' ? item.fromRecipeId : null;
-        if (knownOnly && fromRecipeId && !getRecipe(fromRecipeId)) fromRecipeId = null;
-        return {
-          ingredientId: item.ingredientId,
-          amount: Number(item.amount),
-          fromRecipeId: fromRecipeId
-        };
-      });
-    }
-    return fresh;
-  }
-
-  /* ---------- export / import ---------- */
-
-  /* A versioned envelope, not a bare dump of the storage key: the importer can
-   * tell our file from any other JSON, refuse a newer schema instead of
-   * mangling it, and tell the user what is inside before replacing anything. */
-  var APP_ID = 'fridge-companion';
-  var SCHEMA_VERSION = 1;
-
-  function isEmptyKitchen(state) {
-    return state.categories.length === 0 &&
-      Object.keys(state.stock).length === 0 &&
-      state.shoppingList.length === 0;
-  }
-
-  function summarizeState(state) {
-    return {
-      categories: state.categories.length,
-      ingredients: Object.keys(state.stock).length,
-      shoppingList: state.shoppingList.length
-    };
-  }
-
-  function buildExport(state, now) {
-    var at = now instanceof Date ? now : new Date();
-    return {
-      app: APP_ID,
-      format: 'kitchen',
-      schemaVersion: SCHEMA_VERSION,
-      exportedAt: at.toISOString(),
-      summary: summarizeState(state),
-      state: cloneState(state)
-    };
-  }
-
-  function exportJson(state, now) {
-    return JSON.stringify(buildExport(state, now), null, 2) + '\n';
-  }
-
-  function looksLikeKitchen(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return Array.isArray(value.categories) ||
-      (!!value.stock && typeof value.stock === 'object' && !Array.isArray(value.stock)) ||
-      Array.isArray(value.shoppingList);
-  }
-
-  /* Import is the one place stale or hostile data enters on purpose. It accepts
-   * our envelope and a bare v1 state (what the POC wrote to `fdc-state-v1`),
-   * refuses everything else, and runs whatever survives through sanitizeState
-   * so no import can produce a shape the rest of the app doesn't expect. */
-  function parseImportPayload(text) {
-    var parsed;
-    try {
-      parsed = JSON.parse(String(text));
-    } catch (e) {
-      return { ok: false, error: 'That file is not valid JSON.' };
-    }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return { ok: false, error: 'That file does not contain a kitchen.' };
-    }
-
-    var envelope = Object.prototype.hasOwnProperty.call(parsed, 'state') ||
-      parsed.app === APP_ID ||
-      Object.prototype.hasOwnProperty.call(parsed, 'schemaVersion');
-    var raw = parsed;
-    var version = 0;
-
-    if (envelope) {
-      if (parsed.app !== undefined && parsed.app !== APP_ID) {
-        return { ok: false, error: 'That file belongs to a different app.' };
-      }
-      version = Number(parsed.schemaVersion);
-      if (!isFinite(version) || version < 1) {
-        return { ok: false, error: 'That file has no readable schema version.' };
-      }
-      if (version > SCHEMA_VERSION) {
-        return {
-          ok: false,
-          error: 'That file was made by a newer version of the app. Update before importing it.'
-        };
-      }
-      raw = parsed.state;
-    }
-
-    if (!looksLikeKitchen(raw)) {
-      return { ok: false, error: 'That file does not look like a Fridge Door Companion kitchen.' };
-    }
-
-    var clean = sanitizeState(raw, { knownOnly: true });
-    if (isEmptyKitchen(clean)) {
-      return { ok: false, error: 'That file has no stock, categories, or shopping list to import.' };
-    }
-    return {
-      ok: true,
-      state: clean,
-      schemaVersion: version,
-      legacy: !envelope,
-      summary: summarizeState(clean)
-    };
-  }
-
-  function loadState() {
-    var storage = getStorage();
-    if (!storage) return createState();
-    try {
-      var raw = storage.getItem(STORAGE_KEY);
-      if (!raw) return createState();
-      return sanitizeState(JSON.parse(raw));
-    } catch (e) {
-      // Unreadable or corrupted storage → first use again
-      // (spec > Important Failure Modes).
-      return createState();
-    }
-  }
-
-  function saveState(state) {
-    var storage = getStorage();
-    if (!storage) return false;
-    try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(state));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /* ================================================================== *
-   * 3. UI — rendering and events (browser only)
-   * ================================================================== */
+const catalog = createCatalog(ingredients, recipes);
 
   var state = createState();
   var session = {
@@ -567,7 +116,7 @@
 
     // A first visit adopts the seeded categories and opens straight onto the
     // fridge door — no setup screen in front of the app.
-    state = ensureCategories(loadState());
+    state = ensureCategories(loadState(catalog));
     persist(state);
 
     renderSeedList();
@@ -699,7 +248,7 @@
   /* Import is destructive, so it asks first unless this kitchen is empty —
    * and it replaces state only after the payload has been validated. */
   function applyImport(text) {
-    var result = parseImportPayload(text);
+    var result = parseImportPayload(catalog, text);
     if (!result.ok) {
       els.dataStatus.textContent = result.error;
       announce(result.error);
@@ -725,18 +274,6 @@
 
   /* ---------- reset ---------- */
 
-  /* Clears only this app's key, never the whole storage: other apps on the
-   * same origin are not ours to delete. */
-  function clearStoredKitchen(storage) {
-    if (!storage) return false;
-    try {
-      storage.removeItem(STORAGE_KEY);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
   function onResetKitchen() {
     if (!window.confirm('Clear this kitchen and start over? Your categories, stock, and ' +
         'shopping list will be gone. Export a copy first if you might want them back.')) {
@@ -759,33 +296,10 @@
   var syncChannel = null;
   var TAB_ID = 'tab-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-  /* Pure: the state a tab should show for a given value of the storage key.
-   * null means the key is gone — another tab reset the kitchen — so the
-   * receiving tab lands on the same seeded first-use state. Unreadable values
-   * return null and are ignored rather than blanking a good kitchen. */
-  function remoteStateFromRaw(raw) {
-    if (raw === null || raw === undefined) return ensureCategories(createState());
-    try {
-      return ensureCategories(sanitizeState(JSON.parse(String(raw))));
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function sameState(a, b) {
-    return JSON.stringify(a) === JSON.stringify(b);
-  }
-
-  function readRawState() {
-    var storage = getStorage();
-    if (!storage) return null;
-    try {
-      return storage.getItem(STORAGE_KEY);
-    } catch (e) {
-      return null;
-    }
-  }
-
+  /* A tab that hears the signal re-reads storage instead of trusting a
+   * payload, so a half-written message can never be applied. The domain owns
+   * what a stored value means; unreadable data comes back as null and is
+   * ignored rather than blanking a good kitchen. */
   function broadcastChange() {
     if (!syncChannel) return;
     try {
@@ -796,7 +310,7 @@
   /* Re-read from storage rather than trusting a payload: storage is the
    * source of truth, so a tab can never apply a half-written message. */
   function receiveRemoteState(raw) {
-    var incoming = remoteStateFromRaw(raw);
+    var incoming = remoteStateFromRaw(catalog, raw);
     if (!incoming || sameState(incoming, state)) return;
     state = incoming;
     // A recipe card or pick list built against the old kitchen is stale now.
@@ -829,6 +343,7 @@
   }
 
   function registerServiceWorker() {
+    if (import.meta.env.DEV) return; // no built shell to cache in dev
     if (!('serviceWorker' in navigator)) return;
     if (location.protocol === 'file:') return; // no worker on file://; see README
     window.addEventListener('load', function () {
@@ -925,7 +440,7 @@
 
   function trackedStockIds() {
     return Object.keys(state.stock).filter(function (id) {
-      return !isStaple(id) && (state.stock[id] || 0) > 0;
+      return !isStaple(catalog, id) && (state.stock[id] || 0) > 0;
     });
   }
 
@@ -935,7 +450,7 @@
   function renderFridge() {
     els.fridgeStock.innerHTML = '';
     var any = false;
-    groupTrayByCategory(state.categories).forEach(function (g) {
+    groupTrayByCategory(catalog, state.categories).forEach(function (g) {
       var stocked = g.items.filter(function (ing) { return (state.stock[ing.id] || 0) > 0; });
       if (stocked.length === 0) return;
       any = true;
@@ -1011,11 +526,11 @@
   }
 
   function categoryGroups() {
-    return groupTrayByCategory(state.categories)
+    return groupTrayByCategory(catalog, state.categories)
       .map(function (g) {
         return {
           category: g.category,
-          items: g.items.filter(function (ing) { return !isStaple(ing.id); })
+          items: g.items.filter(function (ing) { return !isStaple(catalog, ing.id); })
         };
       })
       .filter(function (g) { return g.items.length > 0; });
@@ -1184,7 +699,7 @@
   }
 
   function quickAdd(ingredientId) {
-    var ing = getIngredient(ingredientId);
+    var ing = getIngredient(catalog, ingredientId);
     if (!ing) return;
     var amount = defaultAmount(ing);
     state = addToStock(state, ingredientId, amount);
@@ -1337,8 +852,8 @@
   function renderShoppingList() {
     els.shoppingItems.innerHTML = '';
     state.shoppingList.forEach(function (item) {
-      var ing = getIngredient(item.ingredientId);
-      var fromRecipe = item.fromRecipeId ? getRecipe(item.fromRecipeId) : null;
+      var ing = getIngredient(catalog, item.ingredientId);
+      var fromRecipe = item.fromRecipeId ? getRecipe(catalog, item.fromRecipeId) : null;
       var li = document.createElement('li');
       li.className = 'shop-item';
       li.innerHTML =
@@ -1377,7 +892,7 @@
 
   function renderRecommendations() {
     els.recCards.innerHTML = '';
-    var picks = recommend(state);
+    var picks = recommend(catalog, state);
     if (picks.length === 0) {
       // Empty state: no cards, just the friendly message (prd.md > Getting recommendations).
       els.recCards.classList.add('hidden');
@@ -1442,8 +957,8 @@
 
     els.recipeChecklist.innerHTML = '';
     recipe.ingredients.forEach(function (ri) {
-      if (isStaple(ri.ingredientId)) return; // listed separately as assumed
-      var ing = getIngredient(ri.ingredientId);
+      if (isStaple(catalog, ri.ingredientId)) return; // listed separately as assumed
+      var ing = getIngredient(catalog, ri.ingredientId);
       var held = state.stock[ri.ingredientId] || 0;
       var have = held >= ri.amount;
       var li = document.createElement('li');
@@ -1460,10 +975,10 @@
     });
 
     // Staples the recipe calls for: neither green nor red, just assumed.
-    var staples = recipe.ingredients.filter(function (ri) { return isStaple(ri.ingredientId); });
+    var staples = recipe.ingredients.filter(function (ri) { return isStaple(catalog, ri.ingredientId); });
     if (staples.length > 0) {
       els.recipeStaples.innerHTML = 'Assumed in your pantry: ' + staples.map(function (ri) {
-        var ing = getIngredient(ri.ingredientId);
+        var ing = getIngredient(catalog, ri.ingredientId);
         return ing ? ing.emoji + ' ' + escapeHtml(ing.name) : escapeHtml(ri.ingredientId);
       }).join(' &middot; ');
       els.recipeStaples.classList.remove('hidden');
@@ -1480,7 +995,7 @@
 
     // A recipe the kitchen already covers has nothing to shop for, so the
     // shopping button disappears entirely and "Cook this" stands alone.
-    var missingCount = missingIngredients(state, recipe).length;
+    var missingCount = missingIngredients(catalog, state, recipe).length;
     els.generateList.classList.toggle('hidden', missingCount === 0);
     els.generateList.disabled = missingCount === 0; // belt and braces: hidden first
     els.generateList.title = missingCount === 0 ? 'You already have everything for this one' : '';
@@ -1491,7 +1006,7 @@
   function heldIngredientIds(recipe) {
     return recipe.ingredients
       .filter(function (ri) {
-        return !isStaple(ri.ingredientId) && (state.stock[ri.ingredientId] || 0) > 0;
+        return !isStaple(catalog, ri.ingredientId) && (state.stock[ri.ingredientId] || 0) > 0;
       })
       .map(function (ri) { return ri.ingredientId; });
   }
@@ -1499,9 +1014,9 @@
   function onCookThis() {
     if (!openPick) return;
     var recipe = openPick.recipe;
-    var spec = combineAnimationSpec(recipe, heldIngredientIds(recipe));
-    var taken = cookDeductions(state, recipe); // read before the stock changes
-    state = cookRecipe(state, recipe); // deducts only what you have
+    var spec = combineAnimationSpec(catalog, recipe, heldIngredientIds(recipe));
+    var taken = cookDeductions(catalog, state, recipe); // read before the stock changes
+    state = cookRecipe(catalog, state, recipe); // deducts only what you have
     persist(state);
     closeRecipeView();
     closeRecommendations();
@@ -1513,9 +1028,9 @@
   function onGenerateList() {
     if (!openPick) return;
     var recipe = openPick.recipe;
-    var missing = missingIngredients(state, recipe);
-    var spec = combineAnimationSpec(recipe, missing.map(function (m) { return m.ingredientId; }));
-    state = addToShoppingList(state, recipe); // missing items, recipe quantities
+    var missing = missingIngredients(catalog, state, recipe);
+    var spec = combineAnimationSpec(catalog, recipe, missing.map(function (m) { return m.ingredientId; }));
+    state = addToShoppingList(catalog, state, recipe); // missing items, recipe quantities
     persist(state);
     closeRecipeView();
     closeRecommendations();
@@ -1612,7 +1127,7 @@
     els.removeFloat.classList.remove('hidden');
 
     deductions.forEach(function (d, i) {
-      var ing = getIngredient(d.ingredientId);
+      var ing = getIngredient(catalog, d.ingredientId);
       if (!ing) return;
 
       var chip = document.createElement('span');
@@ -1654,7 +1169,7 @@
   /* ---------- amount prompt ---------- */
 
   function openPrompt(ingredientId) {
-    var ing = getIngredient(ingredientId);
+    var ing = getIngredient(catalog, ingredientId);
     if (!ing) return;
     session.promptIngredientId = ingredientId;
     els.promptEmoji.textContent = ing.emoji;
@@ -1686,59 +1201,12 @@
     if (!doorOpen) setDoor(true); // show it land
   }
 
-  /* ================================================================== *
-   * Exports — the pure logic, for the verification harnesses
-   * ================================================================== */
-
-  var api = {
-    STORAGE_KEY: STORAGE_KEY,
-    SEEDED_CATEGORIES: SEEDED_CATEGORIES,
-    createState: createState,
-    cloneState: cloneState,
-    parseAmount: parseAmount,
-    isValidAmount: isValidAmount,
-    addToStock: addToStock,
-    confirmCategories: confirmCategories,
-    ensureCategories: ensureCategories,
-    groupTrayByCategory: groupTrayByCategory,
-    getIngredient: getIngredient,
-    isStaple: isStaple,
-    STAPLE_IDS: STAPLE_IDS,
-    APP_ID: APP_ID,
-    SCHEMA_VERSION: SCHEMA_VERSION,
-    sanitizeState: sanitizeState,
-    summarizeState: summarizeState,
-    isEmptyKitchen: isEmptyKitchen,
-    buildExport: buildExport,
-    exportJson: exportJson,
-    parseImportPayload: parseImportPayload,
-    remoteStateFromRaw: remoteStateFromRaw,
-    sameState: sameState,
-    clearStoredKitchen: clearStoredKitchen,
-    loadState: loadState,
-    saveState: saveState,
-    scoreRecipe: scoreRecipe,
-    LENGTH_BONUS: LENGTH_BONUS,
-    lengthMultiplier: lengthMultiplier,
-    recommend: recommend,
-    missingIngredients: missingIngredients,
-    cookRecipe: cookRecipe,
-    cookDeductions: cookDeductions,
-    addToShoppingList: addToShoppingList,
-    buyShoppingListItem: buyShoppingListItem,
-    getRecipe: getRecipe,
-    combineAnimationSpec: combineAnimationSpec
-  };
-
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = api;
+/* Module scripts are deferred, so the document is parsed by the time this
+ * runs; the readyState guard covers tests and unusual embedding. */
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
-
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', init);
-    } else {
-      init();
-    }
-  }
-})(typeof window !== 'undefined' ? window : globalThis);
+}

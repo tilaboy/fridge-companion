@@ -9,23 +9,23 @@
  *   - cross-origin requests: never touched. The app makes none.
  *
  * Bump CACHE when the shell list changes, so the old entries are dropped on
- * activate. */
+ * activate. The build stamps both the list and the name: `tools/postbuild.mjs`
+ * replaces `__BUILD_HASH__` and the asset placeholder with the hashed URLs
+ * Vite actually emitted. */
 'use strict';
 
-var CACHE = 'fdc-shell-v1';
+var CACHE = 'fdc-shell-__BUILD_HASH__';
 
 var SHELL = [
   './',
   './index.html',
   './styles.css',
-  './app.js',
-  './data/ingredients.js',
-  './data/recipes.js',
   './manifest.webmanifest',
   './privacy.html',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-maskable-512.png'
+  './icons/icon-maskable-512.png',
+  /*__SHELL_ASSETS__*/
 ];
 
 self.addEventListener('install', function (event) {

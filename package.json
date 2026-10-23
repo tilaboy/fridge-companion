@@ -5,10 +5,11 @@
   "description": "A local-first kitchen that helps you cook what you already have.",
   "scripts": {
     "dev": "vite",
+    "build": "tsc --noEmit && vite build && node tools/postbuild.mjs",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "verify": "node verify/all.js"
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

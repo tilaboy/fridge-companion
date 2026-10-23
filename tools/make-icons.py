@@ -3,7 +3,7 @@ rectangles on a gradient, written as PNG by hand. Run from anywhere:
 
     python3 tools/make-icons.py
 
-Output: icons/icon-1024.png and icons/icon-maskable-1024.png; derive the
+Output: public/icons/icon-1024.png and public/icons/icon-maskable-1024.png; derive the
 smaller sizes with sips (see README) and delete the 1024 sources."""
 'use strict';
 
@@ -14,7 +14,7 @@ import zlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / 'icons'
+OUT = ROOT / 'public' / 'icons'
 SIZE = 1024
 SAMPLES = 3
 
