@@ -210,18 +210,20 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 Make the app reachable, installable, and incapable of silent data loss.
 
-> **Progress (2026-10-22):** export/import with validation and round-trip tests
-> (`verify/slice-5.js`), the storage-failure banner, and CI running all harnesses
-> are in. Boxes stay open until their full wording is met — the importer reads
-> v1 envelopes and bare v1 state today; the v2 migration lands with M1.
+> **Progress (2026-10-23):** every box is closed except the live URL. Verified by
+> harnesses (`verify/slice-5.js`, `slice-6.js`), a headless-Chrome reload with the
+> network emulated off, and a two-tab edit that reached the other tab. The v1 → v2
+> migration this section used to ask for moved to M1, where the v2 schema is built.
 
-- [ ] Export to versioned JSON; import validates and migrates; round-trip test.
-- [ ] Storage failure (quota/blocked) shows a persistent banner; no false success.
-- [ ] Cross-tab sync via `storage` event or `BroadcastChannel`.
-- [ ] "Reset kitchen" with confirmation; clears only app keys.
-- [ ] Deployed static URL (GitHub Pages / Netlify / Cloudflare Pages).
-- [ ] PWA manifest, icons, service worker; reload with network off works.
-- [ ] Privacy page published.
+- [x] Export to versioned JSON; import validates and round-trips; the v2 migration
+      lands with M1.
+- [x] Storage failure (quota/blocked) shows a persistent banner; no false success.
+- [x] Cross-tab sync via `BroadcastChannel`, with `storage` events as the fallback.
+- [x] "Reset kitchen" with confirmation; clears only app keys.
+- [ ] Deployed static URL (GitHub Pages) — Pages is enabled on the repo but no
+      deploy has succeeded yet; see README for the one-time setting.
+- [x] PWA manifest, icons, service worker; reload with network off works.
+- [x] Privacy page published (`privacy.html`).
 
 **Done when:** a user can install it, use it offline, survive a cleared browser
 via export/import, and see a warning when a write fails.
