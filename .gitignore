@@ -5,6 +5,11 @@
 .workbuddy/
 .DS_Store
 
+# 依赖与构建产物
+node_modules/
+dist/
+coverage/
+
 # 本地凭据文件：忽略 .env 与 .env.*，放行无密钥的 .env.example
 .env
 .env.*

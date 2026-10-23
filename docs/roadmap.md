@@ -231,6 +231,12 @@ via export/import, and see a warning when a write fails.
 
 ### M1 — A fridge you can trust (1–2 weeks)
 
+> **Progress (2026-10-23):** the domain kernel is extracted into typed modules
+> (`src/domain/`) and covered by 69 Vitest tests, including a parity suite that
+> feeds the same inputs to the new code and to `app.js` and fails on any
+> difference. The UI still runs the v1 functions; swapping it onto the domain is
+> the next slice, then the v2 schema and migration.
+
 - [ ] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
 - [ ] Stock lots with optional expiry; "use soon" ordering; expired badge.

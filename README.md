@@ -72,25 +72,35 @@ while being refreshed in the background. If you change the precache list, bump
 
 ## For developers
 
-- Plain HTML/CSS/JS today, no framework, no build step, no dependencies. The
-  move to TypeScript + Vite starts with the module split (ADR-001).
+- The browser still runs `app.js` as a classic script with no build step, but the
+  pure domain now lives in typed modules under `src/domain/` (see ADR-001). The
+  UI moves onto those modules next; until then a parity suite feeds the same
+  inputs to both implementations and fails on any drift. Vite takes over the
+  build when the UI imports the domain directly.
+- Setup: `npm ci`, then `npm run typecheck` and `npm test`. `npm run dev` serves
+  the current shell for browser work (no build step yet).
+- `src/domain/` — the DOM-free kernel: state, amounts, categories, scoring,
+  cook/shop actions, export/import. It takes a `Catalog` instead of reaching for
+  globals, so tests can build a three-ingredient world. `tests/domain/` covers it
+  with Vitest, including `parity.test.ts` against the v1 functions in `app.js`.
 - `data/ingredients.js` — the built-in ingredient tray; `data/recipes.js` — the built-in recipe collection.
 - `docs/` — the [roadmap](docs/roadmap.md) and the [ADRs](docs/adr/). Read ADR-002
   before changing anything about storage.
 - `devpost/` — the planning documents (scope, PRD, spec) and the build checklist that tracks progress. Hackathon history, kept for provenance.
 - The door is one screen: a fridge in the middle with one bubble per category hung either side, placed by percentage on a fixed-height stage so nothing is measured at runtime (below 1000px the bubbles drop under the fridge as a two-up grid). Categories are edited in the disclosure under the fridge rather than on a first-use screen. The icon drag is a pointer drag (not HTML5 drag-and-drop) so it can be exercised end to end by the harnesses.
 - Your kitchen keeps the categories you chose. If the built-in data later gains a category (Meat & Fish, for example), its ingredients show up under a trailing **Other** bubble until you tick that category on in **Rename or add categories**.
-- `verify/` — node harnesses for each build slice. `node verify/all.js` runs all
-  of them in separate processes; CI does exactly that. `verify/slice-4.js` walks
-  the whole journey end to end (first open → add → recommend → cook → shop →
-  recommend again), `verify/slice-5.js` covers export/import and the files it
-  refuses, and `verify/slice-6.js` covers reset, cross-tab reconciliation, the
-  PWA shell (manifest fields, real icon dimensions, every precached file), and
-  the privacy page.
+- `verify/` — node harnesses for each build slice. `node verify/all.js` (or
+  `npm run verify`) runs all of them in separate processes; CI does exactly that.
+  `verify/slice-4.js` walks the whole journey end to end (first open → add →
+  recommend → cook → shop → recommend again), `verify/slice-5.js` covers
+  export/import and the files it refuses, and `verify/slice-6.js` covers reset,
+  cross-tab reconciliation, the PWA shell (manifest fields, real icon dimensions,
+  every precached file), and the privacy page.
 - Export/import and cross-tab reconciliation live in `app.js` as pure functions
   (`buildExport`, `exportJson`, `parseImportPayload`, `remoteStateFromRaw`)
   so the harnesses can test them without a browser; the UI only wires them to
-  file input, download, and a `BroadcastChannel`.
+  file input, download, and a `BroadcastChannel`. The typed versions are in
+  `src/domain/transfer.ts`.
 - `tools/make-icons.py` regenerates the PWA icons with no image library. It
   writes 1024px sources; derive the rest with `sips` (`sips -z 512 512 …`) and
   keep only the sizes referenced by the manifest and `index.html`.

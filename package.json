@@ -1,0 +1,19 @@
+{
+  "name": "fridge-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first kitchen that helps you cook what you already have.",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "node verify/all.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.0.0"
+  }
+}
