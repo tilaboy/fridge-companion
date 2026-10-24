@@ -131,6 +131,17 @@ body {
 
 .seed-check { width: 16px; height: 16px; accent-color: var(--accent-deep); cursor: pointer; }
 
+.staple-list { max-height: 280px; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+
+.staple-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--ink);
+  padding: 3px 2px;
+  cursor: pointer;
+}
+
 .seed-name {
   flex: 1;
   min-width: 0;

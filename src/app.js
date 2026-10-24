@@ -27,7 +27,8 @@ import {
   expiryStatus,
   isEmptyKitchen,
   isValidAmount,
-  isStaple,
+  isStapleFor,
+  setStaple,
   soonestExpiry,
   missingIngredients,
   parseAmount,
@@ -75,6 +76,7 @@ const catalog = createCatalog(ingredients, recipes);
 
   function init() {
     els.seedList = document.getElementById('seed-list');
+    els.stapleList = document.getElementById('staple-list');
     els.addCategoryForm = document.getElementById('add-category-form');
     els.confirmCategories = document.getElementById('confirm-categories');
     els.categoryError = document.getElementById('category-error');
@@ -136,6 +138,7 @@ const catalog = createCatalog(ingredients, recipes);
     persist(state);
 
     renderSeedList();
+    renderStapleList();
     els.addCategoryForm.addEventListener('submit', onAddCategory);
     els.confirmCategories.addEventListener('click', onConfirmCategories);
     els.exportButton.addEventListener('click', onExport);
@@ -285,6 +288,7 @@ const catalog = createCatalog(ingredients, recipes);
     closeRecipeView();
     closeRecommendations();
     renderSeedList();
+    renderStapleList();
     renderAll();
     els.dataStatus.textContent = 'Imported ' + detail + '.';
     announce('Kitchen imported: ' + detail + '.');
@@ -305,6 +309,7 @@ const catalog = createCatalog(ingredients, recipes);
     closeRecipeView();
     closeRecommendations();
     renderSeedList();
+    renderStapleList();
     renderAll();
     els.dataStatus.textContent = 'Kitchen cleared. Start fresh by opening a bubble.';
     announce('Kitchen cleared.');
@@ -337,6 +342,7 @@ const catalog = createCatalog(ingredients, recipes);
     closeRecipeView();
     closeRecommendations();
     renderSeedList(); // the categories disclosure is not part of renderAll
+    renderStapleList();
     renderAll();
     announce('The kitchen changed in another tab.');
   }
@@ -391,6 +397,54 @@ const catalog = createCatalog(ingredients, recipes);
     state.categories.forEach(function (c) {
       if (!seeded[c.id]) els.seedList.appendChild(makeSeedRow(c.id, c.name, true));
     });
+  }
+
+  /* Every tray ingredient gets a checkbox, in name order, so marking an
+   * uncommon staple does not mean hunting through bubbles. */
+  function renderStapleList() {
+    els.stapleList.innerHTML = '';
+    catalog.ingredients.slice().sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    }).forEach(function (ing) {
+      var li = document.createElement('li');
+      li.className = 'seed-row';
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'seed-check';
+      cb.id = 'staple-' + ing.id;
+      cb.dataset.ingredientId = ing.id;
+      cb.checked = isStapleFor(catalog, state, ing.id);
+      cb.addEventListener('change', function () {
+        onToggleStaple(ing.id, cb.checked);
+      });
+
+      var label = document.createElement('label');
+      label.className = 'staple-name';
+      label.htmlFor = cb.id;
+      label.textContent = ing.emoji + ' ' + ing.name;
+
+      li.appendChild(cb);
+      li.appendChild(label);
+      els.stapleList.appendChild(li);
+    });
+  }
+
+  function onToggleStaple(ingredientId, staple) {
+    var ing = getIngredient(catalog, ingredientId);
+    if (!ing) return;
+    remember('staples',
+      (staple ? 'Made ' + ing.name + ' a staple.' : 'Stopped treating ' + ing.name + ' as a staple.'),
+      state);
+    state = setStaple(catalog, state, ingredientId, staple);
+    persist(state);
+    renderStapleList();
+    renderAll();
+    announce(staple
+      ? ing.name + ' is now assumed in the pantry.'
+      : ing.name + ' is now tracked in the fridge.');
+    var again = els.stapleList.querySelector('input[data-ingredient-id="' + ingredientId + '"]');
+    if (again) again.focus({ preventScroll: true });
   }
 
   function makeSeedRow(id, name, checked) {
@@ -460,7 +514,7 @@ const catalog = createCatalog(ingredients, recipes);
 
   function trackedStockIds() {
     return Object.keys(stockTotals(state.stockLots)).filter(function (id) {
-      return !isStaple(catalog, id) && totalAmount(state.stockLots, id) > 0;
+      return !isStapleFor(catalog, state, id) && totalAmount(state.stockLots, id) > 0;
     });
   }
 
@@ -569,7 +623,7 @@ const catalog = createCatalog(ingredients, recipes);
       .map(function (g) {
         return {
           category: g.category,
-          items: g.items.filter(function (ing) { return !isStaple(catalog, ing.id); })
+          items: g.items.filter(function (ing) { return !isStapleFor(catalog, state, ing.id); })
         };
       })
       .filter(function (g) { return g.items.length > 0; });
@@ -799,6 +853,7 @@ const catalog = createCatalog(ingredients, recipes);
     closePrompt();
     closeRecipeView();
     closeRecommendations();
+    renderStapleList(); // an undone staple change must move its checkboxes back
     renderAll();
     announce('Undid ' + result.entry.kind + '.');
     if (undoStack.length > 0) {
@@ -1056,7 +1111,7 @@ const catalog = createCatalog(ingredients, recipes);
 
     els.recipeChecklist.innerHTML = '';
     recipe.ingredients.forEach(function (ri) {
-      if (isStaple(catalog, ri.ingredientId)) return; // listed separately as assumed
+      if (isStapleFor(catalog, state, ri.ingredientId)) return; // listed separately as assumed
       var ing = getIngredient(catalog, ri.ingredientId);
       var held = totalAmount(state.stockLots, ri.ingredientId);
       var have = held >= ri.amount;
@@ -1074,7 +1129,7 @@ const catalog = createCatalog(ingredients, recipes);
     });
 
     // Staples the recipe calls for: neither green nor red, just assumed.
-    var staples = recipe.ingredients.filter(function (ri) { return isStaple(catalog, ri.ingredientId); });
+    var staples = recipe.ingredients.filter(function (ri) { return isStapleFor(catalog, state, ri.ingredientId); });
     if (staples.length > 0) {
       els.recipeStaples.innerHTML = 'Assumed in your pantry: ' + staples.map(function (ri) {
         var ing = getIngredient(catalog, ri.ingredientId);
@@ -1105,7 +1160,7 @@ const catalog = createCatalog(ingredients, recipes);
   function heldIngredientIds(recipe) {
     return recipe.ingredients
       .filter(function (ri) {
-        return !isStaple(catalog, ri.ingredientId) && totalAmount(state.stockLots, ri.ingredientId) > 0;
+        return !isStapleFor(catalog, state, ri.ingredientId) && totalAmount(state.stockLots, ri.ingredientId) > 0;
       })
       .map(function (ri) { return ri.ingredientId; });
   }

@@ -236,7 +236,7 @@ via export/import, and see a warning when a write fails.
 > into `dist/` and deployed by CI. The six node harnesses were ported into
 > Vitest tests (domain, store, data, journey, shell) before being deleted; a
 > temporary parity suite proved the extraction identical to v1 and retired with
-> the old copy. The suite is now 110 tests.
+> the old copy. The suite is now 124 tests.
 >
 > Schema 2 now stores `stockLots` (amount, optional expiry, arrival time) and
 > derives every total; cooking consumes the soonest-expiring batch first. The
@@ -262,13 +262,22 @@ via export/import, and see a warning when a write fails.
 > storage; two undos return the initial empty kitchen; a purchase undoes back to
 > the same list.
 >
-> Next: custom ingredients/recipes and configurable staples.
+> Pantry staples are now per-kitchen choices layered over the tray defaults.
+> Unchecking a built-in staple (salt, sugar, flour, milk) makes it a tracked
+> ingredient again; checking any other ingredient assumes it is always on hand
+> and clears its lots and shopping entries. The choice lives in
+> `stapleOverrides` inside the kitchen state, so export, import, and cross-tab
+> sync carry it, and scoring/cooking read the effective set. Verified in
+> Chrome: salt leaves and rejoins the tray as its box changes, marking beef
+> empties its lot, and undo restores the lot and the unchecked box.
+>
+> Next: custom ingredients and recipes.
 
 - [x] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
 - [x] Stock lots with optional expiry; "use soon" ordering; expired badge.
 - [ ] Custom ingredients and recipes with validation and de-duplication.
-- [ ] Configurable staples per user.
+- [x] Configurable staples per user.
 - [x] Undo for cook and restock; confirmation for destructive actions.
 - [x] Idempotent v1 → v2 migration covered by tests.
 

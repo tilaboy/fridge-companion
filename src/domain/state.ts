@@ -8,7 +8,13 @@ import { addLot } from './lots';
 import type { Category, KitchenState, ShoppingItem, StateSummary, Stock, StockLot } from './types';
 
 export function createState(): KitchenState {
-  return { schemaVersion: 2, categories: [], stockLots: [], shoppingList: [] };
+  return {
+    schemaVersion: 2,
+    categories: [],
+    stockLots: [],
+    shoppingList: [],
+    stapleOverrides: {},
+  };
 }
 
 export function cloneState(state: KitchenState): KitchenState {
@@ -31,6 +37,8 @@ export function cloneState(state: KitchenState): KitchenState {
         fromRecipeId: item.fromRecipeId ?? null,
       }),
     ),
+    // Defensive `?? {}`: hand-built or pre-override states still clone.
+    stapleOverrides: Object.assign({}, state.stapleOverrides ?? {}),
   };
 }
 

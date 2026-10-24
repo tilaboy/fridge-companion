@@ -8,10 +8,11 @@
  * no-op apart from sanitizing.
  */
 import type { Catalog } from './catalog';
-import { getIngredient, getRecipe, isStaple } from './catalog';
+import { getIngredient, getRecipe } from './catalog';
 import { isValidAmount } from './amount';
 import { confirmCategories, ensureCategories } from './categories';
 import { normalizeExpiry } from './lots';
+import { effectiveStapleIds } from './staples';
 import { cloneState, createState, isEmptyKitchen, summarizeState } from './state';
 import type {
   ExportEnvelope,
@@ -39,6 +40,7 @@ function migrateStock(
   stock: Record<string, unknown>,
   knownOnly: boolean,
   now: Date,
+  staples: ReadonlySet<string>,
 ): StockLot[] {
   const lots: StockLot[] = [];
   const addedAt = now.toISOString();
@@ -46,7 +48,7 @@ function migrateStock(
   for (const ingredientId of Object.keys(stock)) {
     const amount = Number(stock[ingredientId]);
     // Staples were never tracked; drop any left by an earlier version.
-    if (!isValidAmount(amount) || isStaple(catalog, ingredientId)) continue;
+    if (!isValidAmount(amount) || staples.has(ingredientId)) continue;
     if (knownOnly && !getIngredient(catalog, ingredientId)) continue;
     lots.push({
       id: 'migrated-' + ingredientId + '-' + index++,
@@ -59,11 +61,29 @@ function migrateStock(
   return lots;
 }
 
+/** Boolean-only overrides; unknown ids matter only to imports. */
+function sanitizeStapleOverrides(
+  catalog: Catalog,
+  raw: unknown,
+  knownOnly: boolean,
+): Record<string, boolean> {
+  const record = asRecord(raw);
+  const out: Record<string, boolean> = {};
+  if (!record) return out;
+  for (const id of Object.keys(record)) {
+    if (typeof record[id] !== 'boolean') continue;
+    if (knownOnly && !getIngredient(catalog, id)) continue;
+    out[id] = record[id];
+  }
+  return out;
+}
+
 function sanitizeLots(
   catalog: Catalog,
   list: readonly unknown[],
   knownOnly: boolean,
   now: Date,
+  staples: ReadonlySet<string>,
 ): StockLot[] {
   const lots: StockLot[] = [];
   const ids = new Set<string>();
@@ -72,7 +92,7 @@ function sanitizeLots(
     const entry = asRecord(raw);
     if (!entry || typeof entry.ingredientId !== 'string') continue;
     const amount = Number(entry.amount);
-    if (!isValidAmount(amount) || isStaple(catalog, entry.ingredientId)) continue;
+    if (!isValidAmount(amount) || staples.has(entry.ingredientId)) continue;
     if (knownOnly && !getIngredient(catalog, entry.ingredientId)) continue;
 
     let id =
@@ -115,12 +135,17 @@ export function sanitizeState(
     fresh.categories = confirmCategories(record.categories);
   }
 
+  // Read staple choices before stock: a built-in staple the user unmarked
+  // must keep its lots, while one they marked must lose them.
+  fresh.stapleOverrides = sanitizeStapleOverrides(catalog, record.stapleOverrides, knownOnly);
+  const staples = effectiveStapleIds(catalog, fresh);
+
   if (Array.isArray(record.stockLots)) {
-    fresh.stockLots = sanitizeLots(catalog, record.stockLots, knownOnly, now);
+    fresh.stockLots = sanitizeLots(catalog, record.stockLots, knownOnly, now, staples);
   } else {
     const legacyStock = asRecord(record.stock);
     if (legacyStock) {
-      fresh.stockLots = migrateStock(catalog, legacyStock, knownOnly, now);
+      fresh.stockLots = migrateStock(catalog, legacyStock, knownOnly, now, staples);
     }
   }
 
@@ -252,5 +277,13 @@ export function remoteStateFromRaw(
 }
 
 export function sameState(a: KitchenState, b: KitchenState): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a === b) return true;
+  // Override maps are unordered, so compare their keys in a stable order.
+  const overrides = (state: KitchenState) => {
+    const source = state.stapleOverrides ?? {};
+    const sorted: Record<string, boolean> = {};
+    for (const id of Object.keys(source).sort()) sorted[id] = source[id]!;
+    return { ...state, stapleOverrides: sorted };
+  };
+  return JSON.stringify(overrides(a)) === JSON.stringify(overrides(b));
 }

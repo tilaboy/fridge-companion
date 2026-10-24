@@ -95,6 +95,15 @@
           <button id="confirm-categories" type="button" class="btn btn-primary btn-small">Save categories</button>
         </details>
 
+        <details id="staples-panel" class="categories-panel">
+          <summary class="categories-summary">Pantry staples</summary>
+          <p class="data-note">
+            Checked items are assumed always in the kitchen. They are never counted,
+            tracked, or added to the shopping list.
+          </p>
+          <ul id="staple-list" class="seed-list staple-list"></ul>
+        </details>
+
         <!-- Export is the backup of record (roadmap §2 principle 2, ADR-002).
              A kitchen file is also how two people share a fridge until sync
              exists. -->

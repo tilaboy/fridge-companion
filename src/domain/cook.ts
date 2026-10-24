@@ -6,9 +6,10 @@
  * or shopped for.
  */
 import type { Catalog } from './catalog';
-import { getIngredient, isStaple } from './catalog';
+import { getIngredient } from './catalog';
 import { addLot, sortedLotsFor, stockTotals, totalAmount } from './lots';
 import { cloneState } from './state';
+import { isStapleFor } from './staples';
 import { missingIngredients } from './recommend';
 import type {
   CombineAnimationSpec,
@@ -35,7 +36,7 @@ function deductLots(state: KitchenState, ingredientId: string, amount: number): 
 export function cookRecipe(catalog: Catalog, state: KitchenState, recipe: Recipe): KitchenState {
   const next = cloneState(state);
   for (const ri of recipe.ingredients) {
-    if (isStaple(catalog, ri.ingredientId)) continue;
+    if (isStapleFor(catalog, state, ri.ingredientId)) continue;
     const held = totalAmount(next.stockLots, ri.ingredientId);
     if (held <= 0) continue; // missing: untouched
     deductLots(next, ri.ingredientId, ri.amount);
@@ -51,7 +52,7 @@ export function cookDeductions(
 ): Deduction[] {
   const out: Deduction[] = [];
   for (const ri of recipe.ingredients) {
-    if (isStaple(catalog, ri.ingredientId)) continue;
+    if (isStapleFor(catalog, state, ri.ingredientId)) continue;
     const held = totalAmount(state.stockLots, ri.ingredientId);
     if (held <= 0) continue; // missing: never removed
     const removed = Math.min(held, ri.amount);

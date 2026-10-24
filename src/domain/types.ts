@@ -76,6 +76,15 @@ export interface KitchenState {
   categories: Category[];
   stockLots: StockLot[];
   shoppingList: ShoppingItem[];
+  /**
+   * Per-kitchen staple choices, layered over the tray defaults.
+   *
+   * Absent (or unmentioned) means "use the ingredient's built-in default".
+   * `true` marks a normally tracked ingredient as assumed on hand; `false`
+   * turns a built-in staple back into something to track. Stored with the
+   * kitchen so export, import, and cross-tab sync carry it.
+   */
+  stapleOverrides: Record<IngredientId, boolean>;
 }
 
 /** The counts the data panel and import confirmation show. */

@@ -6,15 +6,20 @@
  * on hand and already paid for.
  */
 import type { Catalog } from './catalog';
-import { isStaple } from './catalog';
 import { stockTotals, totalAmount } from './lots';
-import type { KitchenState, Recipe, ScoredRecipe, Stock } from './types';
+import { effectiveStapleIds, isStapleFor } from './staples';
+import type { IngredientId, KitchenState, Recipe, ScoredRecipe, Stock } from './types';
 
-export function scoreRecipe(catalog: Catalog, recipe: Recipe, stock: Stock): ScoredRecipe {
+export function scoreRecipe(
+  catalog: Catalog,
+  recipe: Recipe,
+  stock: Stock,
+  stapleIds: ReadonlySet<IngredientId> = catalog.stapleIds,
+): ScoredRecipe {
   let have = 0;
   let total = 0;
   for (const ri of recipe.ingredients) {
-    if (isStaple(catalog, ri.ingredientId)) continue;
+    if (stapleIds.has(ri.ingredientId)) continue;
     total += 1;
     if ((stock[ri.ingredientId] ?? 0) >= ri.amount) have += 1;
   }
@@ -49,9 +54,10 @@ export function recommend(
   recipeList: readonly Recipe[] = catalog.recipes,
 ): ScoredRecipe[] {
   const totals = stockTotals(state.stockLots);
+  const staples = effectiveStapleIds(catalog, state);
   return recipeList
     .map((recipe) => {
-      const scored = scoreRecipe(catalog, recipe, totals);
+      const scored = scoreRecipe(catalog, recipe, totals, staples);
       scored.rank = scored.score * lengthMultiplier(scored.total);
       return scored;
     })
@@ -73,7 +79,7 @@ export function missingIngredients(
   return recipe.ingredients
     .filter(
       (ri) =>
-        !isStaple(catalog, ri.ingredientId) &&
+        !isStapleFor(catalog, state, ri.ingredientId) &&
         totalAmount(state.stockLots, ri.ingredientId) < ri.amount,
     )
     .map((ri) => ({ ingredientId: ri.ingredientId, amount: ri.amount }));
