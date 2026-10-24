@@ -18,6 +18,7 @@ import {
   isMealType,
   isTimeMinutes,
 } from './preferences';
+import { DEFAULT_SERVINGS, isServings } from './servings';
 import { cloneState } from './state';
 import { dimensionOf, isUnit } from './units';
 import type {
@@ -193,6 +194,8 @@ export interface CustomRecipeIngredientInput {
 export interface CustomRecipeInput {
   name: string;
   dishEmoji?: string;
+  /** Blank/absent means the legacy default (2 servings). */
+  servings?: number | string | null;
   /** Blank/absent means unknown, so time filters fail closed. */
   timeMinutes?: number | string | null;
   /** Absent/empty means no declared slot, so meal filters hide it. */
@@ -218,6 +221,16 @@ function readRecipeTime(raw: unknown): number | undefined | null {
   if (raw === null || raw === undefined || String(raw).trim() === '') return undefined;
   const value = Number(String(raw).replace(',', '.'));
   return isTimeMinutes(value) ? value : null;
+}
+
+/** Blank/absent means the legacy default; null means invalid. */
+function readServings(raw: unknown): number | null {
+  if (raw === null || raw === undefined || String(raw).trim() === '') {
+    return DEFAULT_SERVINGS;
+  }
+  if (typeof raw !== 'number' && typeof raw !== 'string') return null;
+  const value = Number(String(raw).replace(',', '.'));
+  return isServings(value) ? value : null;
 }
 
 /** undefined = not declared, null = invalid, array = valid meal slots. */
@@ -288,6 +301,11 @@ export function addCustomRecipe(
   const steps = cleanSteps(input.steps);
   if (steps.length === 0) return { ok: false, error: 'Add at least one step.' };
 
+  const servings = readServings(input.servings);
+  if (servings === null) {
+    return { ok: false, error: 'Servings must be a whole number between 1 and 12.' };
+  }
+
   const timeMinutes = readRecipeTime(input.timeMinutes);
   if (timeMinutes === null) {
     return { ok: false, error: 'Time must be a whole number of minutes between 1 and 240.' };
@@ -300,6 +318,7 @@ export function addCustomRecipe(
     id: uniqueId('custom-recipe-', name, taken),
     name,
     dishEmoji: cleanEmoji(input.dishEmoji, '🍽️'),
+    servings,
     ingredients,
     steps,
   };
@@ -437,6 +456,7 @@ export function sanitizeCustomRecipes(
       id,
       name,
       dishEmoji: cleanEmoji(record.dishEmoji, '🍽️'),
+      servings: readServings(record.servings) ?? DEFAULT_SERVINGS,
       ingredients,
       steps,
     };

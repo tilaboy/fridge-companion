@@ -9,6 +9,7 @@ export * from './lots';
 export * from './history';
 export * from './staples';
 export * from './preferences';
+export * from './servings';
 export * from './custom';
 export * from './state';
 export * from './categories';

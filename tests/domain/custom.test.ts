@@ -346,6 +346,7 @@ describe('addCustomRecipe', () => {
       id: 'custom-recipe-my-soup',
       name: 'My Soup',
       dishEmoji: '🍽️',
+      servings: 2,
       ingredients: [
         { ingredientId: 'tomato', amount: 3 },
         { ingredientId: 'salt', amount: 1 },
@@ -366,6 +367,38 @@ describe('addCustomRecipe', () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.recipe.timeMinutes).toBe(15);
     expect(result.recipe.mealTypes).toEqual(['lunch', 'dinner']);
+  });
+
+  it('stores the declared servings, defaulting to two when blank', () => {
+    const declared = addCustomRecipe(catalog, kitchen(), {
+      name: 'Family Pot',
+      servings: '4',
+      ingredients: [{ ingredientId: 'tomato', amount: 4 }],
+      steps: ['Cook.'],
+    });
+    if (!declared.ok) throw new Error(declared.error);
+    expect(declared.recipe.servings).toBe(4);
+
+    const blank = addCustomRecipe(catalog, kitchen(), {
+      name: 'Default Pot',
+      ingredients: [{ ingredientId: 'tomato', amount: 2 }],
+      steps: ['Cook.'],
+    });
+    if (!blank.ok) throw new Error(blank.error);
+    expect(blank.recipe.servings).toBe(2);
+  });
+
+  it('rejects servings outside the whole-number guardrail', () => {
+    for (const servings of ['0', '13', '2.5', 'soon']) {
+      const result = addCustomRecipe(catalog, kitchen(), {
+        name: 'Bad Servings',
+        servings,
+        ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+        steps: ['Cook.'],
+      });
+      expect(result.ok, servings).toBe(false);
+      if (!result.ok) expect(result.error.toLowerCase()).toContain('servings');
+    }
   });
 
   it('rejects invalid time and meal metadata', () => {
@@ -398,6 +431,7 @@ describe('addCustomRecipe', () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.recipe.timeMinutes).toBeUndefined();
     expect(result.recipe.mealTypes).toBeUndefined();
+    expect(result.recipe.servings).toBe(2);
   });
 
   it('refuses duplicate names and broken ingredients or steps', () => {
@@ -461,6 +495,7 @@ describe('sanitizeCustomRecipes', () => {
     expect(clean[0]).toMatchObject({
       id: 'custom-recipe-ok',
       name: 'Okra Stew',
+      servings: 2,
       ingredients: [{ ingredientId: 'tomato', amount: 2 }],
       steps: ['Cook.'],
     });
@@ -473,6 +508,7 @@ describe('sanitizeCustomRecipes', () => {
       [
         {
           name: 'Quick Dinner',
+          servings: 4,
           timeMinutes: '15',
           mealTypes: ['dinner', 'dinner'],
           ingredients: [{ ingredientId: 'tomato', amount: 1 }],
@@ -480,6 +516,7 @@ describe('sanitizeCustomRecipes', () => {
         },
         {
           name: 'Bad Time',
+          servings: '0',
           timeMinutes: 0,
           mealTypes: ['lunch'],
           ingredients: [{ ingredientId: 'tomato', amount: 1 }],
@@ -487,6 +524,7 @@ describe('sanitizeCustomRecipes', () => {
         },
         {
           name: 'Bad Meal',
+          servings: 3,
           timeMinutes: 10,
           mealTypes: ['brunch'],
           ingredients: [{ ingredientId: 'tomato', amount: 1 }],
@@ -500,18 +538,22 @@ describe('sanitizeCustomRecipes', () => {
       ],
       [],
     );
-    expect(clean[0]).toMatchObject({ timeMinutes: 15, mealTypes: ['dinner'] });
+    expect(clean[0]).toMatchObject({ servings: 4, timeMinutes: 15, mealTypes: ['dinner'] });
+    expect(clean[1]!.servings).toBe(2);
     expect(clean[1]!.timeMinutes).toBeUndefined();
     expect(clean[1]!.mealTypes).toEqual(['lunch']);
+    expect(clean[2]!.servings).toBe(3);
     expect(clean[2]!.timeMinutes).toBe(10);
     expect(clean[2]!.mealTypes).toBeUndefined();
+    expect(clean[3]!.servings).toBe(2);
     expect(clean[3]!.timeMinutes).toBeUndefined();
     expect(clean[3]!.mealTypes).toBeUndefined();
   });
 
-  it('round-trips recipe time and meal metadata', () => {
+  it('round-trips recipe servings, time, and meal metadata', () => {
     const recipe = addCustomRecipe(catalog, kitchen(), {
       name: 'Quick Dinner',
+      servings: 4,
       timeMinutes: 15,
       mealTypes: ['dinner'],
       ingredients: [{ ingredientId: 'tomato', amount: 1 }],
@@ -523,6 +565,7 @@ describe('sanitizeCustomRecipes', () => {
     if (!result.ok) throw new Error(result.error);
     expect(result.state.customRecipes[0]).toMatchObject({
       name: 'Quick Dinner',
+      servings: 4,
       timeMinutes: 15,
       mealTypes: ['dinner'],
     });

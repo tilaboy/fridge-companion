@@ -14,6 +14,8 @@ import {
   DIET_LABELS,
   MEAL_LABELS,
   MEAL_TYPES,
+  MAX_SERVINGS,
+  MIN_SERVINGS,
   SEEDED_CATEGORIES,
   TIME_BUDGETS,
   acceptedUnits,
@@ -50,9 +52,11 @@ import {
   popUndo,
   pushUndo,
   recommend,
+  recipeServings,
   remoteStateFromRaw,
   roundAmount,
   sameState,
+  scaleRecipe,
   stockTotals,
   summarizeState,
   toCanonical,
@@ -87,7 +91,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
     clickTimer: null, // disambiguates click (prompt) from double-click (quick add)
     clickItemId: null,
     suppressClick: false, // set by a drag so its release opens nothing
-    recipeDraft: [] // custom-recipe builder rows, canonical amounts
+    recipeDraft: [], // custom-recipe builder rows, canonical amounts
+    recipeServings: null // servings chosen in the open recipe card
   };
   var els = {};
   var openPick = null; // the recommendation currently centered
@@ -121,6 +126,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.customRecipeForm = document.getElementById('custom-recipe-form');
     els.customRecipeName = document.getElementById('custom-recipe-name');
     els.customRecipeEmoji = document.getElementById('custom-recipe-emoji');
+    els.customRecipeServings = document.getElementById('custom-recipe-servings');
     els.customRecipeTime = document.getElementById('custom-recipe-time');
     els.customRecipeMeals = document.getElementById('custom-recipe-meals');
     els.customRecipeIngredient = document.getElementById('custom-recipe-ingredient');
@@ -165,6 +171,9 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.recipeClose = document.getElementById('recipe-close');
     els.recipeDish = document.getElementById('recipe-dish');
     els.recipeTitle = document.getElementById('recipe-title');
+    els.recipeServingsValue = document.getElementById('recipe-servings-value');
+    els.recipeServingsDown = document.getElementById('recipe-servings-down');
+    els.recipeServingsUp = document.getElementById('recipe-servings-up');
     els.recipeChecklist = document.getElementById('recipe-checklist');
     els.recipeSteps = document.getElementById('recipe-steps');
     els.recipeStaples = document.getElementById('recipe-staples');
@@ -239,6 +248,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.myRecipesButton.addEventListener('click', onMyRecipes);
     els.recClose.addEventListener('click', closeRecommendations);
     els.recipeClose.addEventListener('click', closeRecipeView);
+    els.recipeServingsDown.addEventListener('click', function () { changeRecipeServings(-1); });
+    els.recipeServingsUp.addEventListener('click', function () { changeRecipeServings(1); });
     els.cookThis.addEventListener('click', onCookThis);
     els.generateList.addEventListener('click', onGenerateList);
     els.promptForm.addEventListener('submit', onSubmitAmount);
@@ -841,6 +852,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
       var meta = document.createElement('span');
       meta.className = 'draft-amount';
       var details = [];
+      var baseServings = recipeServings(recipe);
+      details.push(baseServings + (baseServings === 1 ? ' serving' : ' servings'));
       if (recipe.timeMinutes) details.push(recipe.timeMinutes + ' min');
       if (recipe.mealTypes && recipe.mealTypes.length) {
         details.push(recipe.mealTypes.map(function (meal) {
@@ -863,6 +876,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     var result = addCustomRecipe(catalog, state, {
       name: els.customRecipeName.value,
       dishEmoji: els.customRecipeEmoji.value,
+      servings: els.customRecipeServings.value,
       timeMinutes: els.customRecipeTime.value,
       mealTypes: selectedMeals(els.customRecipeMeals, 'custom-recipe-meal'),
       ingredients: session.recipeDraft,
@@ -882,6 +896,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     session.recipeDraft = [];
     els.customRecipeName.value = '';
     els.customRecipeEmoji.value = '';
+    els.customRecipeServings.value = '';
     els.customRecipeTime.value = '';
     els.customRecipeMeals.querySelectorAll('input').forEach(function (input) {
       input.checked = false;
@@ -1621,6 +1636,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
     }
 
     var details = [];
+    var baseServings = recipeServings(pick.recipe);
+    details.push('Serves ' + baseServings);
     if (pick.recipe.timeMinutes) details.push(pick.recipe.timeMinutes + ' min');
     if (pick.recipe.mealTypes && pick.recipe.mealTypes.length) {
       details.push(pick.recipe.mealTypes.map(function (meal) {
@@ -1665,6 +1682,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
   function openRecipe(pick) {
     openPick = pick;
+    session.recipeServings = recipeServings(pick.recipe);
     renderRecipeView(pick);
     els.recipeView.classList.remove('hidden');
   }
@@ -1672,15 +1690,54 @@ const baseCatalog = createCatalog(ingredients, recipes);
   function closeRecipeView() {
     els.recipeView.classList.add('hidden');
     openPick = null;
+    session.recipeServings = null;
+  }
+
+  function changeRecipeServings(delta) {
+    if (!openPick) return;
+    var current = session.recipeServings;
+    if (typeof current !== 'number') current = recipeServings(openPick.recipe);
+    var next = current + delta;
+    if (next < MIN_SERVINGS || next > MAX_SERVINGS) return;
+    session.recipeServings = next;
+    renderRecipeView(openPick);
+  }
+
+  /** The open recipe at the servings chosen in the card. */
+  function scaledOpenRecipe() {
+    if (!openPick) return null;
+    var base = openPick.recipe;
+    var servings = session.recipeServings;
+    if (typeof servings !== 'number') servings = recipeServings(base);
+    return scaleRecipe(base, servings);
   }
 
   function renderRecipeView(pick) {
     var recipe = pick.recipe;
+    var baseServings = recipeServings(recipe);
+    var servings = session.recipeServings;
+    if (
+      typeof servings !== 'number' ||
+      !Number.isInteger(servings) ||
+      servings < MIN_SERVINGS ||
+      servings > MAX_SERVINGS
+    ) {
+      servings = baseServings;
+      session.recipeServings = servings;
+    }
+    var scaled = scaleRecipe(recipe, servings);
+
     els.recipeDish.textContent = recipe.dishEmoji;
     els.recipeTitle.textContent = recipe.name;
+    els.recipeServingsValue.textContent = String(servings);
+    els.recipeServingsDown.disabled = servings <= MIN_SERVINGS;
+    els.recipeServingsUp.disabled = servings >= MAX_SERVINGS;
+    els.recipeServingsValue.title = servings === baseServings
+      ? 'Recipe is written for ' + baseServings + (baseServings === 1 ? ' serving' : ' servings')
+      : 'Scaled from ' + baseServings + (baseServings === 1 ? ' serving' : ' servings');
 
     els.recipeChecklist.innerHTML = '';
-    recipe.ingredients.forEach(function (ri) {
+    scaled.ingredients.forEach(function (ri) {
       if (isStapleFor(catalog, state, ri.ingredientId)) return; // listed separately as assumed
       var ing = getIngredient(catalog, ri.ingredientId);
       var held = totalAmount(state.stockLots, ri.ingredientId);
@@ -1692,14 +1749,15 @@ const baseCatalog = createCatalog(ingredients, recipes);
         '<span class="check-emoji">' + (ing ? ing.emoji : '') + '</span>' +
         '<span class="check-name">' + escapeHtml(ing ? ing.name : ri.ingredientId) + '</span>' +
         '<span class="check-amounts">' + (have
-          ? 'you have ' + escapeHtml(formatAmount(ing, held))
+          ? 'use ' + escapeHtml(formatAmount(ing, ri.amount)) +
+            (held > ri.amount ? ' (you have ' + escapeHtml(formatAmount(ing, held)) + ')' : '')
           : 'need ' + escapeHtml(formatAmount(ing, ri.amount)) +
             (held > 0 ? ' (you have ' + escapeHtml(formatAmount(ing, held)) + ')' : '')) + '</span>';
       els.recipeChecklist.appendChild(li);
     });
 
     // Staples the recipe calls for: neither green nor red, just assumed.
-    var staples = recipe.ingredients.filter(function (ri) { return isStapleFor(catalog, state, ri.ingredientId); });
+    var staples = scaled.ingredients.filter(function (ri) { return isStapleFor(catalog, state, ri.ingredientId); });
     if (staples.length > 0) {
       els.recipeStaples.innerHTML = 'Assumed in your pantry: ' + staples.map(function (ri) {
         var ing = getIngredient(catalog, ri.ingredientId);
@@ -1719,7 +1777,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
     // A recipe the kitchen already covers has nothing to shop for, so the
     // shopping button disappears entirely and "Cook this" stands alone.
-    var missingCount = missingIngredients(catalog, state, recipe).length;
+    var missingCount = missingIngredients(catalog, state, scaled).length;
     els.generateList.classList.toggle('hidden', missingCount === 0);
     els.generateList.disabled = missingCount === 0; // belt and braces: hidden first
     els.generateList.title = missingCount === 0 ? 'You already have everything for this one' : '';
@@ -1737,10 +1795,14 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
   function onCookThis() {
     if (!openPick) return;
-    var recipe = openPick.recipe;
+    var base = openPick.recipe;
+    var recipe = scaledOpenRecipe();
+    if (!recipe) return;
     var spec = combineAnimationSpec(catalog, recipe, heldIngredientIds(recipe));
     var taken = cookDeductions(catalog, state, recipe); // read before the stock changes
-    remember('cooking', 'Cooked ' + recipe.name + '.', state);
+    var message = 'Cooked ' + base.name +
+      (recipe.servings === recipeServings(base) ? '' : ' for ' + recipe.servings + ' servings') + '.';
+    remember('cooking', message, state);
     state = cookRecipe(catalog, state, recipe); // deducts only what you have
     persist(state);
     closeRecipeView();
@@ -1752,7 +1814,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
   function onGenerateList() {
     if (!openPick) return;
-    var recipe = openPick.recipe;
+    var recipe = scaledOpenRecipe();
+    if (!recipe) return;
     var missing = missingIngredients(catalog, state, recipe);
     var spec = combineAnimationSpec(catalog, recipe, missing.map(function (m) { return m.ingredientId; }));
     state = addToShoppingList(catalog, state, recipe); // missing items, recipe quantities

@@ -90,11 +90,11 @@ Scores every built-in recipe: **score = (ingredients you have in sufficient amou
 PRD ref: `prd.md > Getting recommendations`.
 
 ### Recipe card view
-A recommendation card brought to center: dish emoji, the have/missing ingredient checklist (green/red), a muted line naming the staples the recipe assumes, the cooking steps, the "Bon Appétit" close, and the commit buttons.
+A recommendation card brought to center: dish emoji, the have/missing ingredient checklist (green/red), a servings stepper (− / +, clamped to 1–12), a muted line naming the staples the recipe assumes, the cooking steps, the "Bon Appétit" close, and the commit buttons. The stepper starts at the recipe's base `servings` (two for every built-in and for legacy recipes), and changing it scales every amount on the card.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Commit actions
-**"Cook this"** deducts the recipe's ingredients from stock — only what the user actually has, and never a staple — and floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's quantities) to the shopping-list card; staples are never sent. The shopping button appears only when the recipe actually has missing ingredients — a recipe the kitchen already covers shows **"Cook this"** alone, because there is nothing to shop for. Both rewrite the store; committing plays the combining animation.
+**"Cook this"** deducts the recipe's ingredients at the chosen servings from stock — only what the user actually has, and never a staple — and floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's scaled quantities) to the shopping-list card; staples are never sent. The shopping button appears only when the recipe actually has missing ingredients — a recipe the kitchen already covers shows **"Cook this"** alone, because there is nothing to shop for. Both rewrite the store; committing plays the combining animation.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Shopping list card
@@ -110,7 +110,7 @@ PRD ref: `prd.md > Cooking from a recipe`.
 PRD ref: `prd.md > Cooking from a recipe` (signature animation).
 
 ### Built-in data files
-`data/ingredients.js` — the icon tray: id, name, emoji, category, unit for every ingredient the recipes need, plus a `staple` flag on the four assumed-on-hand items (milk, flour, salt, sugar). `data/recipes.js` — three dozen recipes: id, name, dish emoji, ingredient list with amounts, steps. Every recipe ingredient exists in the tray, and every tray ingredient is used by at least one recipe (the POC's fixed-ingredient decision); staples are in the file so recipes keep one source for names and units, but they stay out of the tray, the score, and the shopping list.
+`data/ingredients.js` — the icon tray: id, name, emoji, category, unit for every ingredient the recipes need, plus a `staple` flag on the four assumed-on-hand items (milk, flour, salt, sugar). `data/recipes.js` — three dozen recipes: id, name, dish emoji, base servings, ingredient list with amounts, steps. Every recipe ingredient exists in the tray, and every tray ingredient is used by at least one recipe (the POC's fixed-ingredient decision); staples are in the file so recipes keep one source for names and units, but they stay out of the tray, the score, and the shopping list.
 PRD ref: `prd.md > Setting up your kitchen (first use)`.
 
 ## Data Model
@@ -124,7 +124,7 @@ User data (lives in browser storage, one versioned key):
 Built-in data (ships in code, never written at runtime):
 
 - `ingredients`: `[{ id, name, emoji, categoryId, unit, staple? }]`
-- `recipes`: `[{ id, name, dishEmoji, ingredients: [{ ingredientId, amount }], steps: [string] }]`
+- `recipes`: `[{ id, name, dishEmoji, servings, ingredients: [{ ingredientId, amount }], steps: [string] }]`
 
 ### Staples
 

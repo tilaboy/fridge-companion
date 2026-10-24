@@ -180,8 +180,16 @@
               <input id="custom-recipe-name" type="text" maxlength="60" placeholder="Recipe name" aria-label="Recipe name">
               <input id="custom-recipe-emoji" type="text" maxlength="16" placeholder="&#127869;" aria-label="Dish emoji (optional)">
             </div>
-            <label class="custom-label" for="custom-recipe-time">Cooking time in minutes</label>
-            <input id="custom-recipe-time" class="custom-density" type="text" inputmode="numeric" placeholder="e.g. 25 (optional)" aria-label="Cooking time in minutes (optional)">
+            <div class="custom-row">
+              <div class="custom-field">
+                <label class="custom-label" for="custom-recipe-time">Cooking time in minutes</label>
+                <input id="custom-recipe-time" class="custom-density" type="text" inputmode="numeric" placeholder="25 (optional)" aria-label="Cooking time in minutes (optional)">
+              </div>
+              <div class="custom-field">
+                <label class="custom-label" for="custom-recipe-servings">Servings</label>
+                <input id="custom-recipe-servings" class="custom-density" type="text" inputmode="numeric" placeholder="2 (default)" aria-label="Servings (default 2)">
+              </div>
+            </div>
             <fieldset class="allergen-fieldset">
               <legend class="custom-label">Meal types</legend>
               <div id="custom-recipe-meals" class="allergen-options"></div>
@@ -254,6 +262,12 @@
       <button id="recipe-close" type="button" class="btn btn-small recipe-close" aria-label="Close recipe">&times;</button>
       <div id="recipe-dish" class="recipe-dish" aria-hidden="true"></div>
       <h2 id="recipe-title" class="recipe-name"></h2>
+      <div class="recipe-servings" role="group" aria-labelledby="recipe-servings-label">
+        <span id="recipe-servings-label" class="recipe-servings-label">Servings</span>
+        <button id="recipe-servings-down" type="button" class="servings-btn" aria-label="Fewer servings">&minus;</button>
+        <output id="recipe-servings-value" class="recipe-servings-value" aria-live="polite">2</output>
+        <button id="recipe-servings-up" type="button" class="servings-btn" aria-label="More servings">+</button>
+      </div>
       <ul id="recipe-checklist" class="recipe-checklist"></ul>
       <p id="recipe-staples" class="recipe-staples hidden"></p>
       <h3 class="recipe-steps-title">Steps</h3>

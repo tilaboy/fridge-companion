@@ -70,7 +70,6 @@ The kitchen lives in one `localStorage` key (`fdc-state-v1`).
 - No custom ingredients or recipes. 33 ingredients / 35 recipes is a demo set.
 - Staples are hardcoded to milk/flour/salt/sugar; real kitchens differ.
 - No package sizes (a 500 g pack vs the 200 g a recipe needs).
-- No servings scaling at cook time.
 
 ### 3.3 Recommendation quality
 
@@ -125,7 +124,7 @@ Missing:
 | Area | Carry over | Replace / add |
 | --- | --- | --- |
 | Kernel | score = have ÷ need, amount-level check, staples exclusion, top-N | hard filters, expiry weighting, explanations, history |
-| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v5, stock lots, custom items, hard preferences, time/meal metadata, migration |
+| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v6, stock lots, custom items, hard preferences, time/meal/servings metadata, migration |
 | Store | `loadState` / `saveState` seam | storage adapter interface + optional remote adapter |
 | UI | fridge-door metaphor, bubbles, pointer drag, reduced motion | focus management, keyboard path, dark mode, empty/error states |
 | Data | `data/ingredients.js`, `data/recipes.js` shape | richer schema, tags/allergens/time/servings, provenance |
@@ -160,7 +159,7 @@ record, and **accounts/sync deferred to v1.1** (household sharing ships as a
 kitchen file first). Size was never the reason to leave `localStorage`; silent
 eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md).
 
-## 7. Data model (current v5, with proposed additions)
+## 7. Data model (current v6, with proposed additions)
 
 ```js
 // Ingredient — built-in or user-created
@@ -180,7 +179,9 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 // Recipe
 {
-  id, name, dishEmoji, servings, timeMinutes,
+  id, name, dishEmoji,
+  servings,                                  // base yield; legacy default 2
+  timeMinutes,
   mealTypes: [],                             // breakfast | lunch | dinner | snack
   tags: [], dietFlags: [], allergens: [],   // current safety is derived from ingredients
   ingredients: [{ ingredientId, amount, unit, optional }],
@@ -196,7 +197,7 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 // Persisted state
 {
-  schemaVersion: 5,
+  schemaVersion: 6,
   categories,
   // Hard filters, never ranking penalties.
   preferences: { diet, allergens, maxTimeMinutes, meal },
@@ -311,20 +312,20 @@ via export/import, and see a warning when a write fails.
 - [x] Custom ingredients and recipes with validation and de-duplication.
 - [x] Configurable staples per user.
 - [x] Undo for cook and restock; confirmation for destructive actions.
-- [x] Idempotent v1 → v5 migration covered by tests.
+- [x] Idempotent v1 → v6 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is
 visible, and undo restores the exact prior state.
 
 ### M2 — Picks worth trusting (2–4 weeks)
 
-> Safety, time/meal, and freshness slices landed: schema 5, built-in and custom
-> ingredient safety metadata, time and meal metadata on every built-in recipe,
-> a Food preferences panel, hard diet/allergen/time/meal filtering before
-> ranking, expiry-weighted ordering, and a one-line reason on every card.
+> Safety, time/meal, and freshness slices landed at schema 5; servings followed
+> at schema 6. Built-in and custom ingredient safety metadata, time and meal
+> metadata on every built-in recipe, a Food preferences panel, hard
+> diet/allergen/time/meal filtering before ranking, expiry-weighted ordering,
+> and a one-line reason on every card.
 > Unknown metadata fails closed, and cards show the time and meal they matched.
-> The remaining M2 work is servings, repetition avoidance, and recipe
-> provenance.
+> The remaining M2 work is repetition avoidance and recipe provenance.
 >
 > Schema 5 adds time and meal metadata. All 35 built-in recipes declare a
 > cooking time and at least one meal slot; custom recipes can declare both, and
@@ -348,11 +349,25 @@ visible, and undo restores the exact prior state.
 > said "Spinach is past its date", and its fit line switched to "check dates";
 > complete and one-short cards showed their fit fallbacks. The reason line
 > stayed on one line at desktop and phone widths.
+>
+> Schema 6 adds a base yield in servings. All 35 built-in recipes are written
+> for two, custom recipes can declare 1–12 and default to two, and legacy
+> recipes without a yield keep scaling from two. The recipe card steps the yield
+> up or down, scales the checklist amounts, and passes a scaled clone to the
+> same cook, missing-ingredient, and shopping-list functions, so deductions and
+> list quantities match the chosen yield. A complete recipe's green line names
+> the amount it will use, with the held amount beside it when they differ.
+> Verified in Chrome: at two servings the pasta card used 200 g from 400 g held;
+> at four it used 400 g, cooked away all four tracked lots, and undo restored
+> them exactly; with only two servings held, four showed every shortfall and
+> sent 400 g / 4 pcs / 4 cloves / 30 ml to the list; the stepper clamped at one
+> and twelve; a custom recipe saved with four servings; and the card stayed
+> inside a 390px viewport.
 
 - [x] Diet and allergen filters are hard constraints; never violated.
 - [x] Time budget and meal type filters.
 - [x] Expiry-weighted ranking; each card states why it ranked.
-- [ ] Servings scaling adjusts amounts and deductions.
+- [x] Servings scaling adjusts amounts and deductions.
 - [ ] Repetition avoidance from cook history.
 - [ ] 150+ recipes with recorded provenance and licensing.
 

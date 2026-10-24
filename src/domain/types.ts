@@ -74,6 +74,11 @@ export interface Recipe {
   name: string;
   dishEmoji: string;
   /**
+   * Base yield in servings. Absent means the legacy default (2), so recipes
+   * imported from schema 5 and earlier still scale from a sensible amount.
+   */
+  servings?: number;
+  /**
    * Total cooking time in minutes. Absent means unknown: the recipe is hidden
    * while a time-budget filter is active.
    */

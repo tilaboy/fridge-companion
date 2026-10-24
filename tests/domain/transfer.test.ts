@@ -57,7 +57,7 @@ describe('buildExport', () => {
 });
 
 describe('exportJson', () => {
-  it('is valid JSON with a trailing newline and v5 lots', () => {
+  it('is valid JSON with a trailing newline and v6 lots', () => {
     const text = exportJson(sampleKitchen(), NOW);
     expect(text.endsWith('\n')).toBe(true);
     const state = JSON.parse(text).state;
@@ -300,6 +300,7 @@ describe('sanitizeState', () => {
       }],
     });
     expect(clean.customRecipes).toHaveLength(1);
+    expect(clean.customRecipes[0]!.servings).toBe(2);
     expect(clean.customRecipes[0]!.timeMinutes).toBeUndefined();
     expect(clean.customRecipes[0]!.mealTypes).toBeUndefined();
   });

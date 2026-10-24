@@ -7,6 +7,7 @@ import {
   missingIngredients,
   recommend,
   ensureCategories,
+  scaleRecipe,
   toCanonical,
 } from '../src/domain/index';
 import { createState } from '../src/domain/state';
@@ -104,6 +105,32 @@ describe('the core loop', () => {
 
     state = cookRecipe(catalog, state, bolognese);
     expect(stockTotals(state.stockLots).beef).toBe(250);
+  });
+
+  it('scales the same cook-and-shop path from the recipe base', () => {
+    let state = addToStock(createState(), 'egg', 6);
+    state = addToStock(state, 'butter', 30);
+    const doubled = scaleRecipe(recipe('scrambled_eggs'), 4);
+    expect(missingIngredients(catalog, state, doubled)).toEqual([]);
+    state = cookRecipe(catalog, state, doubled);
+    expect(stockTotals(state.stockLots)).toEqual({ butter: 10 });
+
+    state = addToStock(state, 'pasta', 100);
+    const pastaForFour = scaleRecipe(recipe('tomato_pasta'), 4);
+    const missing = missingIngredients(catalog, state, pastaForFour);
+    expect(missing).toEqual([
+      { ingredientId: 'pasta', amount: 400 },
+      { ingredientId: 'tomato', amount: 4 },
+      { ingredientId: 'garlic', amount: 4 },
+      { ingredientId: 'olive_oil', amount: 30 },
+    ]);
+    state = addToShoppingList(catalog, state, pastaForFour);
+    expect(state.shoppingList).toEqual([
+      { ingredientId: 'pasta', amount: 400, fromRecipeId: 'tomato_pasta' },
+      { ingredientId: 'tomato', amount: 4, fromRecipeId: 'tomato_pasta' },
+      { ingredientId: 'garlic', amount: 4, fromRecipeId: 'tomato_pasta' },
+      { ingredientId: 'olive_oil', amount: 30, fromRecipeId: 'tomato_pasta' },
+    ]);
   });
 
   it('recommends nothing from a truly empty fridge', () => {

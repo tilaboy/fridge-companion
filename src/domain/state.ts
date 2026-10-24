@@ -41,6 +41,7 @@ function cloneRecipe(recipe: Recipe): Recipe {
     ingredients: recipe.ingredients.map((ri) => ({ ingredientId: ri.ingredientId, amount: ri.amount })),
     steps: recipe.steps.slice(),
   };
+  if (recipe.servings !== undefined) copy.servings = recipe.servings;
   if (recipe.timeMinutes !== undefined) copy.timeMinutes = recipe.timeMinutes;
   if (recipe.mealTypes !== undefined) copy.mealTypes = recipe.mealTypes.slice();
   return copy;
@@ -48,7 +49,7 @@ function cloneRecipe(recipe: Recipe): Recipe {
 
 export function createState(): KitchenState {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     categories: [],
     preferences: createPreferences(),
     customIngredients: [],

@@ -29,15 +29,18 @@ ranking: a recipe is hidden unless every ingredient is declared safe, its
 cooking time fits the budget, and it declares the selected meal. Built-in
 ingredients carry conservative safety tags, dairy/egg/fish allergens are also
 derived from the diet class, and unknown custom metadata fails closed while a
-filter is active. All 35 built-in recipes carry cooking time and meal metadata;
-custom recipes can declare both, and recipes without them stay hidden while
-those filters are on. Cards show the time and meal they matched, plus a
-one-line reason for their place in the list: a complete recipe that can use up
-soon-expiring stock gets a lift and says which ingredient to use first, expired
-stock is de-prioritized and flagged, and otherwise the line states the fit.
-Cooking, restocking, shopping purchases, and preference changes can be undone
-from a toast that restores the exact prior kitchen. Next: M2 servings,
-cook-history repetition avoidance, and recipe provenance, per the
+filter is active. All 35 built-in recipes carry cooking time, meal metadata,
+and a base serving count; custom recipes can declare all three, and recipes
+without time or meal details stay hidden while those filters are on. Cards show
+the time and meal they matched, plus a one-line reason for their place in the
+list: a complete recipe that can use up soon-expiring stock gets a lift and
+says which ingredient to use first, expired stock is de-prioritized and
+flagged, and otherwise the line states the fit. The recipe card scales from its
+base yield, so checklist amounts, shopping quantities, and cooking deductions
+all follow the servings you choose; legacy recipes default to two. Cooking,
+restocking, shopping purchases, and preference changes can be undone from a
+toast that restores the exact prior kitchen. Next: M2 cook-history repetition
+avoidance and recipe provenance, per the
 [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and
@@ -86,7 +89,7 @@ cannot load from it (see `devpost/spec.md > Where It Runs and How Someone Tries 
 2. **Fill the fridge:** tap the fridge to swing its door open, or tap a bubble to swell it into that category's icons. Then tap an icon and enter an amount, **press and drag** it onto the fridge, or double-click it for a default portion. Tap the fridge again (or **Close the door**) to shut it. Staples (milk, flour, salt, sugar) are assumed to be in your kitchen, so they never appear in a bubble.
 3. **Reload the page:** your kitchen is exactly as you left it.
 4. **Press My Recipes** (it sits right under the fridge): the app scores every built-in recipe against your stock and shows the top 2–3. Longer recipes get a thumb on the scale, so a full dinner is not beaten by a two-ingredient snack.
-5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Press **Cook this** — watch the ingredients combine, and watch the amounts it removes float off the fridge and evaporate ("Out of the fridge"). **Generate the shopping list** only appears when the recipe is actually missing something; a recipe you can already make shows "Cook this" alone.
+5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Set the servings with the − / + control — the amounts, shopping quantities, and cooking deductions scale with it. Press **Cook this** — watch the ingredients combine, and watch the amounts it removes float off the fridge and evaporate ("Out of the fridge"). **Generate the shopping list** only appears when the recipe is actually missing something; a recipe you can already make shows "Cook this" alone.
 6. **Shop and restock:** the shopping-list card sits on the fridge door. Press **Got it** on an item and it moves into your stock with the recipe's quantity — so the next My Recipes answers differently.
 7. **Keep a copy:** open **Your data** under the fridge and press **Export kitchen**. You get a versioned JSON file with your categories, stock, and shopping list. **Import kitchen** validates a file before replacing anything and refuses newer formats rather than guessing. **Reset kitchen** starts over and clears only this app's key.
 

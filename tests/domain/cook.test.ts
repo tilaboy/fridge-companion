@@ -8,6 +8,7 @@ import {
   cookRecipe,
 } from '../../src/domain/cook';
 import { stockTotals } from '../../src/domain/lots';
+import { scaleRecipe } from '../../src/domain/servings';
 import type { Ingredient, KitchenState, Recipe } from '../../src/domain/types';
 import { kitchenWithStock } from '../stock';
 
@@ -22,6 +23,7 @@ const recipe: Recipe = {
   id: 'omelette',
   name: 'Omelette',
   dishEmoji: '🍳',
+  servings: 2,
   ingredients: [
     { ingredientId: 'egg', amount: 2 },
     { ingredientId: 'cheese', amount: 50 },
@@ -43,6 +45,11 @@ describe('cookRecipe', () => {
   it('takes what is left when there is not enough, and drops the empty key', () => {
     const next = cookRecipe(catalog, kitchen({ egg: 1, cheese: 20 }), recipe);
     expect(stockTotals(next.stockLots)).toEqual({});
+  });
+
+  it('scales deductions to the chosen servings', () => {
+    const next = cookRecipe(catalog, kitchen({ egg: 5, cheese: 100 }), scaleRecipe(recipe, 4));
+    expect(stockTotals(next.stockLots)).toEqual({ egg: 1 });
   });
 
   it('never deducts staples or ingredients that are missing', () => {
@@ -83,6 +90,13 @@ describe('cookDeductions', () => {
   it('is empty when nothing tracked is held', () => {
     expect(cookDeductions(catalog, kitchen({ salt: 99 }), recipe)).toEqual([]);
   });
+
+  it('reports the scaled amounts actually removed', () => {
+    expect(cookDeductions(catalog, kitchen({ egg: 3, cheese: 80 }), scaleRecipe(recipe, 4))).toEqual([
+      { ingredientId: 'egg', removed: 3, before: 3, after: 0 },
+      { ingredientId: 'cheese', removed: 80, before: 80, after: 0 },
+    ]);
+  });
 });
 
 describe('addToShoppingList', () => {
@@ -91,6 +105,14 @@ describe('addToShoppingList', () => {
     expect(next.shoppingList).toEqual([
       { ingredientId: 'egg', amount: 2, fromRecipeId: 'omelette' },
       { ingredientId: 'cheese', amount: 50, fromRecipeId: 'omelette' },
+    ]);
+  });
+
+  it('lists the scaled quantities for the chosen servings', () => {
+    const next = addToShoppingList(catalog, kitchen({}), scaleRecipe(recipe, 4));
+    expect(next.shoppingList).toEqual([
+      { ingredientId: 'egg', amount: 4, fromRecipeId: 'omelette' },
+      { ingredientId: 'cheese', amount: 100, fromRecipeId: 'omelette' },
     ]);
   });
 

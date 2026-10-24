@@ -152,6 +152,10 @@ body {
 
 .custom-row > * { flex: 1; min-width: 0; }
 
+.custom-field { display: grid; gap: 4px; min-width: 0; }
+
+.custom-field .custom-label { margin: 0; }
+
 .custom-form input,
 .custom-form select,
 .custom-form textarea {
@@ -1347,6 +1351,57 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 .recipe-dish { font-size: 54px; text-align: center; line-height: 1.1; }
 
 .recipe-name { margin: 6px 0 14px; font-size: 22px; text-align: center; }
+
+.recipe-servings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: -2px 0 16px;
+  color: var(--ink-soft);
+}
+
+.recipe-servings-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.servings-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--card-edge);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease;
+}
+
+.servings-btn:hover:not(:disabled) {
+  background: rgba(61, 138, 90, .12);
+  border-color: var(--have);
+}
+
+.servings-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.servings-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.recipe-servings-value {
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
 
 /* have/missing checklist — green = have, red = missing, high contrast */
 .recipe-checklist { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 6px; }

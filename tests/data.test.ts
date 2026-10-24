@@ -11,6 +11,7 @@ import {
   recipeTimeMinutes,
 } from '../src/domain/preferences';
 import { isUnit } from '../src/domain/units';
+import { isServings } from '../src/domain/servings';
 import type { Preferences } from '../src/domain/types';
 import { catalog, ingredients, recipes } from './fixtures';
 
@@ -82,6 +83,12 @@ describe('built-in recipes', () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const recipe of recipes) {
       expect(recipe.steps.length, recipe.id).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('declares a valid base yield in servings', () => {
+    for (const recipe of recipes) {
+      expect(isServings(recipe.servings), recipe.id).toBe(true);
     }
   });
 
