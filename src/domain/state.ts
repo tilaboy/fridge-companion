@@ -45,6 +45,7 @@ function cloneRecipe(recipe: Recipe): Recipe {
   if (recipe.servings !== undefined) copy.servings = recipe.servings;
   if (recipe.timeMinutes !== undefined) copy.timeMinutes = recipe.timeMinutes;
   if (recipe.mealTypes !== undefined) copy.mealTypes = recipe.mealTypes.slice();
+  if (recipe.source !== undefined) copy.source = { ...recipe.source };
   return copy;
 }
 

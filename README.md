@@ -8,10 +8,11 @@ and its history is carried over here.
 
 ## Status
 
-**M0 (safe hands) and M1 (a fridge you can trust) are done.** Live at
-**https://tilaboy.github.io/fridge-companion/** — installable, works offline,
-and can no longer lose a kitchen silently. The pure domain is typed modules
-with a real test suite, and the browser runs a Vite-built shell on top of it.
+**M0 (safe hands), M1 (a fridge you can trust), and M2 (picks worth trusting)
+are done.** Live at **https://tilaboy.github.io/fridge-companion/** —
+installable, works offline, and can no longer lose a kitchen silently. The pure
+domain is typed modules with a real test suite, and the browser runs a Vite-built
+shell on top of it.
 Schema 7 holds stock as lots with optional expiry (so the fridge can say "use
 this first"), the kitchen's own ingredients and recipes, hard food preferences,
 base serving counts, and a bounded cook history; v1–v6 kitchens migrate in
@@ -29,9 +30,10 @@ ranking: a recipe is hidden unless every ingredient is declared safe, its
 cooking time fits the budget, and it declares the selected meal. Built-in
 ingredients carry conservative safety tags, dairy/egg/fish allergens are also
 derived from the diet class, and unknown custom metadata fails closed while a
-filter is active. All 35 built-in recipes carry cooking time, meal metadata,
-and a base serving count; custom recipes can declare all three, and recipes
-without time or meal details stay hidden while those filters are on. Cards show
+filter is active. The 150 built-in recipes carry cooking time, meal metadata,
+and a base serving count; every one records its provenance and license. Custom
+recipes can declare all three, and recipes without time or meal details stay
+hidden while those filters are on. Cards show
 the time and meal they matched, plus a one-line reason for their place in the
 list: a complete recipe that can use up soon-expiring stock gets a lift and
 says which ingredient to use first, expired stock is de-prioritized and
@@ -43,8 +45,10 @@ cooked. The recipe card scales from its base yield, so checklist amounts,
 shopping quantities, and cooking deductions all follow the servings you choose;
 legacy recipes default to two. Cooking, restocking, shopping purchases, and
 preference changes can be undone from a toast that restores the exact prior
-kitchen. Next: M2 recipe provenance and content depth, per the
-[production roadmap](docs/roadmap.md).
+kitchen. The built-in collection is 150 recipes, all written for this project
+and recorded as original work under the repository's MIT license; the recipe
+card shows that provenance, while custom recipes read as your own. Next: M3
+accounts and sync (v1.1), per the [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and
 [IndexedDB with sync deferred past v1](docs/adr/0002-storage-and-sync.md).
@@ -124,7 +128,11 @@ fresh cache and the old one is dropped.
 - `src/app.js` — the UI: rendering, gestures, cross-tab sync, and export/import
   wiring. It imports the domain and builds the catalog once.
 - `src/data/ingredients.ts` — the built-in ingredient tray;
-  `src/data/recipes.ts` — the built-in recipe collection, both typed.
+  `src/data/recipes.ts` — the core built-in recipes, joined with
+  `src/data/expandedRecipes.ts` for 150 total. Every recipe carries a
+  `source: { kind, author, license, url? }` record; the built-ins are original
+  work under MIT (`src/data/provenance.ts`), and custom recipes stay
+  source-less so the app shows them as your own.
 - `docs/` — the [roadmap](docs/roadmap.md) and the [ADRs](docs/adr/). Read ADR-002
   before changing anything about storage.
 - `devpost/` — the planning documents (scope, PRD, spec) and the build checklist that tracks progress. Hackathon history, kept for provenance.

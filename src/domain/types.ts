@@ -69,6 +69,25 @@ export interface RecipeIngredient {
   amount: number;
 }
 
+/** How a built-in recipe entered the collection. */
+export type RecipeSourceKind = 'original' | 'public-domain' | 'licensed';
+
+/**
+ * Provenance and licensing for a built-in recipe.
+ *
+ * Custom recipes are authored by the kitchen itself, so they leave this absent;
+ * import sanitization deliberately ignores any `source` field on a custom
+ * recipe rather than letting an imported file claim someone else's provenance.
+ */
+export interface RecipeSource {
+  kind: RecipeSourceKind;
+  author: string;
+  /** SPDX identifier or a short, human-readable license name. */
+  license: string;
+  /** Where the source text or license can be found, when there is one. */
+  url?: string;
+}
+
 export interface Recipe {
   id: RecipeId;
   name: string;
@@ -88,6 +107,12 @@ export interface Recipe {
    * while a meal filter is active. An empty array means "no declared slot".
    */
   mealTypes?: MealType[];
+  /**
+   * Recorded provenance for a built-in recipe. Absent means the kitchen wrote
+   * it itself, or that it arrived from an older/imported source with no
+   * provenance. Provenance never affects filtering or ranking.
+   */
+  source?: RecipeSource;
   ingredients: RecipeIngredient[];
   steps: string[];
 }

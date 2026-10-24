@@ -10,7 +10,7 @@ status: approved
 Fridge Door Companion is a single web page that runs in your browser. There is no server, no account, and no internet connection needed once it has loaded.
 
 - **Your kitchen lives in the browser's own storage** (a feature called `localStorage`). Think of it as a text file the browser keeps for this app: the app reads it when it opens and rewrites it whenever something changes. Two honest caveats: it's per-browser (Chrome's fridge isn't Firefox's fridge), and clearing browser data erases it.
-- **The recipes and the ingredient tray are built-in data files** that ship with the app — three dozen recipes, the full icon set the matching needs, and the staples list.
+- **The recipes and the ingredient tray are built-in data files** that ship with the app — 150 recipes, the full icon set the matching needs, and the staples list.
 - **A few staples are assumed to be in your kitchen** (milk, flour, salt, sugar). They are never tracked, never scored, and never shopped for; recipes that call for them just list them as assumed.
 - **The app is one screen.** The fridge door appears on open: a fridge standing in the middle, with one floating bubble per category hanging around it. Tapping the fridge swings its door open to show what is inside, and tapping the fridge again (or its *Close the door* button) shuts it; tapping a bubble swells it into a grid of ingredient icons. There is no setup screen and no Done control to get past.
 - **When you press My Recipes**, the app walks the recipe list, scores each recipe against your stock (the share of its ingredients you already have in full amount), weights longer recipes up, sorts them, and shows the top 2–3.
@@ -112,7 +112,7 @@ PRD ref: `prd.md > Cooking from a recipe`.
 PRD ref: `prd.md > Cooking from a recipe` (signature animation).
 
 ### Built-in data files
-`data/ingredients.js` — the icon tray: id, name, emoji, category, unit for every ingredient the recipes need, plus a `staple` flag on the four assumed-on-hand items (milk, flour, salt, sugar). `data/recipes.js` — three dozen recipes: id, name, dish emoji, base servings, ingredient list with amounts, steps. Every recipe ingredient exists in the tray, and every tray ingredient is used by at least one recipe (the POC's fixed-ingredient decision); staples are in the file so recipes keep one source for names and units, but they stay out of the tray, the score, and the shopping list.
+`src/data/ingredients.ts` — the icon tray: id, name, emoji, category, unit for every ingredient the recipes need, plus a `staple` flag on the four assumed-on-hand items (milk, flour, salt, sugar). `src/data/recipes.ts` plus `src/data/expandedRecipes.ts` — 150 recipes: id, name, dish emoji, base servings, cooking time, meal types, ingredient list with amounts, steps, and a provenance record. Every recipe ingredient exists in the tray, and every tray ingredient is used by at least one recipe (the POC's fixed-ingredient decision); staples are in the file so recipes keep one source for names and units, but they stay out of the tray, the score, and the shopping list. Every built-in recipe records `source: { kind, author, license, url? }`; the collection is original work under MIT, and the recipe card shows that provenance. Custom recipes are source-less and read as your own; import sanitization drops a `source` field from custom recipes.
 PRD ref: `prd.md > Setting up your kitchen (first use)`.
 
 ## Data Model
@@ -130,7 +130,7 @@ User data (lives in browser storage, one versioned key):
 Built-in data (ships in code, never written at runtime):
 
 - `ingredients`: `[{ id, name, emoji, categoryId, unit, staple? }]`
-- `recipes`: `[{ id, name, dishEmoji, servings, timeMinutes, mealTypes, ingredients: [{ ingredientId, amount }], steps: [string] }]`
+- `recipes`: `[{ id, name, dishEmoji, servings, timeMinutes, mealTypes, source: { kind, author, license, url? }, ingredients: [{ ingredientId, amount }], steps: [string] }]`
 
 ### Staples
 

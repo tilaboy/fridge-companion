@@ -6,6 +6,7 @@ import {
   cookRecipe,
   missingIngredients,
   recommend,
+  scoreRecipe,
   ensureCategories,
   scaleRecipe,
   toCanonical,
@@ -68,32 +69,31 @@ describe('the core loop', () => {
       { recipeId: 'scrambled_eggs', servings: 2 },
     ]);
 
-    // 5. The picks move on, and another card can be shopped for.
+    // 5. The picks move on, and a recommended card can be shopped for.
     picks = recommend(catalog, state);
     expect(picks.every((p) => p.recipe.id !== 'scrambled_eggs')).toBe(true);
-    expect(picks.some((p) => p.recipe.id === 'soy_rice_bowl')).toBe(true);
-    state = addToShoppingList(catalog, state, recipe('soy_rice_bowl'));
+    const shoppable = picks.find((p) => p.missing > 0);
+    expect(shoppable).toBeDefined();
+    const shoppableRecipe = shoppable!.recipe;
+    const missing = missingIngredients(catalog, state, shoppableRecipe);
+    expect(missing.length).toBeGreaterThan(0);
+    state = addToShoppingList(catalog, state, shoppableRecipe);
     expect(state.shoppingList).toEqual(
-      expect.arrayContaining([
-        { ingredientId: 'cooked_rice', amount: 250, fromRecipeId: 'soy_rice_bowl' },
-        { ingredientId: 'soy_sauce', amount: 15, fromRecipeId: 'soy_rice_bowl' },
-      ]),
+      missing.map((item) => ({ ...item, fromRecipeId: shoppableRecipe.id })),
     );
-    expect(state.shoppingList).toHaveLength(2);
 
-    // 6. Shop: both items join the stock and leave the list.
-    state = buyShoppingListItem(state, 'cooked_rice');
-    state = buyShoppingListItem(state, 'soy_sauce');
-    expect(stockTotals(state.stockLots).cooked_rice).toBe(250);
-    expect(stockTotals(state.stockLots).soy_sauce).toBe(15);
+    // 6. Shop: every item joins the stock and leaves the list.
+    for (const item of missing) state = buyShoppingListItem(state, item.ingredientId);
     expect(state.shoppingList).toEqual([]);
     expect(saveState(state, storage)).toBe(true);
     expect(loadState(catalog, storage).shoppingList).toEqual([]);
 
     // 7. The loop closes: the shopped-for recipe is now complete.
-    picks = recommend(catalog, state);
-    const soy = picks.find((p) => p.recipe.id === 'soy_rice_bowl');
-    expect(soy).toMatchObject({ have: 3, total: 3, score: 1 });
+    expect(missingIngredients(catalog, state, shoppableRecipe)).toEqual([]);
+    expect(scoreRecipe(catalog, shoppableRecipe, stockTotals(state.stockLots))).toMatchObject({
+      missing: 0,
+      score: 1,
+    });
   });
 
   it('lets half a kilo satisfy a recipe that asks for grams', () => {

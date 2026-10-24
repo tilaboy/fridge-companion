@@ -1,15 +1,19 @@
-/* Built-in recipe collection.
+/* Core built-in recipe collection.
  *
  * Every ingredient here exists in the built-in tray
  * (`src/data/ingredients.ts`) — including the staples (salt, sugar, flour,
  * milk), which recipes may call for even though the app assumes they are
- * always on hand.
+ * always on hand. The expanded collection in `expandedRecipes.ts` is joined
+ * below, so the app always sees one recipe list.
  *
  * Amounts are written for two servings; the recipe view scales from there.
+ * Each recipe records original authorship and the MIT license.
  */
 import type { Recipe } from '../domain/types';
+import { expandedRecipes } from './expandedRecipes';
+import { ORIGINAL_RECIPE_SOURCE } from './provenance';
 
-export const recipes: Recipe[] = [
+const coreRecipes: Recipe[] = [
     {
       id: 'scrambled_eggs',
       name: 'Scrambled Eggs',
@@ -17,6 +21,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 10,
       mealTypes: ['breakfast'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'egg', amount: 3 },
         { ingredientId: 'butter', amount: 10 },
@@ -36,6 +41,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'tomato', amount: 2 },
@@ -57,6 +63,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['breakfast'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'potato', amount: 3 },
         { ingredientId: 'olive_oil', amount: 20 },
@@ -77,6 +84,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 10,
       mealTypes: ['breakfast', 'snack'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'bread', amount: 2 },
         { ingredientId: 'cheese', amount: 40 },
@@ -95,6 +103,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'broccoli', amount: 2 },
         { ingredientId: 'soy_sauce', amount: 20 },
@@ -115,6 +124,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 300 },
         { ingredientId: 'egg', amount: 2 },
@@ -135,6 +145,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 35,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'carrot', amount: 4 },
         { ingredientId: 'milk', amount: 200 },
@@ -155,6 +166,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['snack'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'bread', amount: 4 },
         { ingredientId: 'garlic', amount: 3 },
@@ -174,6 +186,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 15,
       mealTypes: ['breakfast'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'egg', amount: 3 },
         { ingredientId: 'mushroom', amount: 100 },
@@ -194,6 +207,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'lemon', amount: 1 },
@@ -214,6 +228,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 5,
       mealTypes: ['breakfast', 'snack'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'bread', amount: 2 },
         { ingredientId: 'honey', amount: 20 },
@@ -232,6 +247,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 15,
       mealTypes: ['breakfast', 'lunch'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'spinach', amount: 1 },
         { ingredientId: 'egg', amount: 2 },
@@ -251,6 +267,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 250 },
         { ingredientId: 'egg', amount: 2 },
@@ -269,6 +286,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 40,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'potato', amount: 2 },
         { ingredientId: 'carrot', amount: 2 },
@@ -290,6 +308,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 15,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'cooked_pasta', amount: 250 },
         { ingredientId: 'bell_pepper', amount: 2 },
@@ -311,6 +330,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'garlic', amount: 3 },
@@ -331,6 +351,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['breakfast', 'lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'tomato', amount: 3 },
         { ingredientId: 'egg', amount: 3 },
@@ -352,6 +373,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 45,
       mealTypes: ['dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'onion', amount: 3 },
         { ingredientId: 'cheese', amount: 50 },
@@ -371,6 +393,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 30,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'potato', amount: 4 },
         { ingredientId: 'milk', amount: 100 },
@@ -390,6 +413,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'mushroom', amount: 150 },
@@ -411,6 +435,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 250 },
         { ingredientId: 'spinach', amount: 1 },
@@ -432,6 +457,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 45,
       mealTypes: ['dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'potato', amount: 3 },
         { ingredientId: 'cheese', amount: 60 },
@@ -453,6 +479,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 250 },
         { ingredientId: 'tomato', amount: 2 },
@@ -474,6 +501,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['breakfast'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'flour', amount: 150 },
         { ingredientId: 'milk', amount: 200 },
@@ -495,6 +523,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 45,
       mealTypes: ['snack'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'rice', amount: 80 },
         { ingredientId: 'milk', amount: 300 },
@@ -513,6 +542,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 45,
       mealTypes: ['dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'potato', amount: 2 },
         { ingredientId: 'carrot', amount: 1 },
@@ -535,6 +565,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'chicken', amount: 200 },
         { ingredientId: 'bell_pepper', amount: 1 },
@@ -556,6 +587,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'chicken', amount: 250 },
         { ingredientId: 'butter', amount: 15 },
@@ -576,6 +608,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 45,
       mealTypes: ['dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'beef', amount: 250 },
         { ingredientId: 'tomato', amount: 3 },
@@ -598,6 +631,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['breakfast', 'lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'bacon', amount: 100 },
         { ingredientId: 'pasta', amount: 200 },
@@ -618,6 +652,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 10,
       mealTypes: ['breakfast', 'lunch', 'snack'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'bread', amount: 2 },
         { ingredientId: 'ham', amount: 60 },
@@ -638,6 +673,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 30,
       mealTypes: ['breakfast', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'sausage', amount: 2 },
         { ingredientId: 'potato', amount: 3 },
@@ -659,6 +695,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 45,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'chicken', amount: 200 },
         { ingredientId: 'carrot', amount: 2 },
@@ -680,6 +717,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 25,
       mealTypes: ['dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'salmon', amount: 200 },
         { ingredientId: 'spinach', amount: 1 },
@@ -701,6 +739,7 @@ export const recipes: Recipe[] = [
       servings: 2,
       timeMinutes: 20,
       mealTypes: ['lunch', 'dinner'],
+      source: { ...ORIGINAL_RECIPE_SOURCE },
       ingredients: [
         { ingredientId: 'tuna', amount: 150 },
         { ingredientId: 'pasta', amount: 200 },
@@ -716,3 +755,6 @@ export const recipes: Recipe[] = [
       ]
     }
   ];
+
+/** The whole built-in collection, core recipes first. */
+export const recipes: Recipe[] = coreRecipes.concat(expandedRecipes);

@@ -171,6 +171,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.recipeClose = document.getElementById('recipe-close');
     els.recipeDish = document.getElementById('recipe-dish');
     els.recipeTitle = document.getElementById('recipe-title');
+    els.recipeSource = document.getElementById('recipe-source');
     els.recipeServingsValue = document.getElementById('recipe-servings-value');
     els.recipeServingsDown = document.getElementById('recipe-servings-down');
     els.recipeServingsUp = document.getElementById('recipe-servings-up');
@@ -1712,6 +1713,22 @@ const baseCatalog = createCatalog(ingredients, recipes);
     return scaleRecipe(base, servings);
   }
 
+  function renderRecipeSource(recipe) {
+    var source = recipe.source;
+    if (!source) {
+      els.recipeSource.textContent = 'Your recipe';
+      els.recipeSource.title = '';
+      return;
+    }
+    var kind = source.kind === 'original'
+      ? 'Original recipe'
+      : source.kind === 'public-domain'
+        ? 'Public-domain recipe'
+        : 'Licensed recipe';
+    els.recipeSource.textContent = kind + ' · ' + source.license;
+    els.recipeSource.title = source.author + (source.url ? ' · ' + source.url : '');
+  }
+
   function renderRecipeView(pick) {
     var recipe = pick.recipe;
     var baseServings = recipeServings(recipe);
@@ -1729,6 +1746,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
     els.recipeDish.textContent = recipe.dishEmoji;
     els.recipeTitle.textContent = recipe.name;
+    renderRecipeSource(recipe);
     els.recipeServingsValue.textContent = String(servings);
     els.recipeServingsDown.disabled = servings <= MIN_SERVINGS;
     els.recipeServingsUp.disabled = servings >= MAX_SERVINGS;

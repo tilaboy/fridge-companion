@@ -502,6 +502,25 @@ describe('sanitizeCustomRecipes', () => {
     expect(clean[1]!.id).toBe('custom-recipe-same-id-as-built-in');
   });
 
+  it('does not let an imported custom recipe claim built-in provenance', () => {
+    const clean = sanitizeCustomRecipes(
+      catalog,
+      [{
+        name: 'Borrowed Soup',
+        source: {
+          kind: 'original',
+          author: 'Fridge Door Companion contributors',
+          license: 'MIT',
+        },
+        ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+        steps: ['Cook.'],
+      }],
+      [],
+    );
+    expect(clean).toHaveLength(1);
+    expect(clean[0]!.source).toBeUndefined();
+  });
+
   it('keeps valid time and meal metadata, and treats malformed metadata as unknown', () => {
     const clean = sanitizeCustomRecipes(
       catalog,

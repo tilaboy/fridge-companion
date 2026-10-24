@@ -58,6 +58,19 @@ describe('servings', () => {
     expect(recipe.ingredients[0]!.amount).toBe(2);
   });
 
+  it('keeps provenance when scaling', () => {
+    const sourced: Recipe = {
+      ...recipe,
+      source: {
+        kind: 'original',
+        author: 'Test kitchen',
+        license: 'MIT',
+        url: 'https://example.test/source',
+      },
+    };
+    expect(scaleRecipe(sourced, 4).source).toEqual(sourced.source);
+  });
+
   it('halves amounts and keeps three-decimal rounding', () => {
     expect(scaleRecipe(recipe, 1).ingredients).toEqual([
       { ingredientId: 'egg', amount: 1 },

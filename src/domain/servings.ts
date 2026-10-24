@@ -63,5 +63,6 @@ export function scaleRecipe(recipe: Recipe, servings: number): Recipe {
   };
   if (recipe.timeMinutes !== undefined) scaled.timeMinutes = recipe.timeMinutes;
   if (recipe.mealTypes !== undefined) scaled.mealTypes = recipe.mealTypes.slice();
+  if (recipe.source !== undefined) scaled.source = { ...recipe.source };
   return scaled;
 }

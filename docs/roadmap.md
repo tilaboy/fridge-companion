@@ -67,7 +67,8 @@ The kitchen lives in one `localStorage` key (`fdc-state-v1`).
 - One fixed unit per ingredient, no conversion (g ↔ kg, cups ↔ ml).
 - No expiry or best-before dates. Without freshness the "fridge" is a list of
   things you once typed, and the best ranking signal ("use this up") is lost.
-- No custom ingredients or recipes. 33 ingredients / 35 recipes is a demo set.
+- The POC had no custom ingredients or recipes: its 33 ingredients / 35 recipes
+  was a demo set; production now ships 150 recipes and custom items.
 - Staples are hardcoded to milk/flour/salt/sugar; real kitchens differ.
 - No package sizes (a 500 g pack vs the 200 g a recipe needs).
 
@@ -83,7 +84,7 @@ Missing:
 - Cook history and repetition avoidance.
 - "Surprise me", filters, and a "not this" signal.
 - A fallback when the fridge is empty (today: friendly empty state only).
-- Content depth: 150–300 recipes with recorded provenance.
+- Content depth: 150–300 recipes with recorded provenance (M2 now ships 150).
 
 ### 3.4 The loop has no safety net
 
@@ -325,9 +326,10 @@ visible, and undo restores the exact prior state.
 > Food preferences panel, hard diet/allergen/time/meal filtering before ranking,
 > expiry-weighted ordering, and a one-line reason on every card. Unknown
 > metadata fails closed, and cards show the time and meal they matched. The
-> remaining M2 work is recipe provenance and content depth.
+> collection now has 150 built-in recipes, each with recorded provenance and
+> licensing, so M2 is complete.
 >
-> Schema 5 adds time and meal metadata. All 35 built-in recipes declare a
+> Schema 5 adds time and meal metadata. Every built-in recipe declares a
 > cooking time and at least one meal slot; custom recipes can declare both, and
 > recipes with missing metadata stay hidden while that filter is active. The
 > Food preferences panel has time and meal selects, recommendation cards show
@@ -350,7 +352,7 @@ visible, and undo restores the exact prior state.
 > complete and one-short cards showed their fit fallbacks. The reason line
 > stayed on one line at desktop and phone widths.
 >
-> Schema 6 adds a base yield in servings. All 35 built-in recipes are written
+> Schema 6 adds a base yield in servings. Every built-in recipe is written
 > for two, custom recipes can declare 1–12 and default to two, and legacy
 > recipes without a yield keep scaling from two. The recipe card steps the yield
 > up or down, scales the checklist amounts, and passes a scaled clone to the
@@ -378,13 +380,23 @@ visible, and undo restores the exact prior state.
 > kitchen the repeat stayed as the sole card and read "Cooked yesterday."; a
 > cook appended the chosen yield, undo restored the prior history and stock,
 > and an offline reload still opened the shell.
+>
+> Content depth does not change the schema. The built-in collection is now 150
+> recipes, all written for this project against the existing 33-ingredient tray.
+> Every recipe records `source: { kind, author, license, url? }`; the collection
+> is original work under the repository's MIT license, and the recipe card shows
+> the provenance while custom recipes read as your own. Data tests enforce
+> 150+, unique ids and names, valid servings/time/meals, positive whole amounts,
+> at least three steps, ingredient coverage, and provenance on every recipe.
+> Imported custom recipes cannot claim a built-in source; the sanitizer drops
+> that field.
 
 - [x] Diet and allergen filters are hard constraints; never violated.
 - [x] Time budget and meal type filters.
 - [x] Expiry-weighted ranking; each card states why it ranked.
 - [x] Servings scaling adjusts amounts and deductions.
 - [x] Repetition avoidance from cook history.
-- [ ] 150+ recipes with recorded provenance and licensing.
+- [x] 150+ recipes with recorded provenance and licensing.
 
 **Done when:** a shellfish-allergic user never sees shellfish, "under 20 min"
 works, and a card explains itself in one line.
@@ -433,7 +445,7 @@ signature until content licensing and budgets justify photos.
 | --- | --- | --- |
 | ~~Framework or vanilla?~~ | — | **Resolved:** ADR-001 — TypeScript + Vite, no framework |
 | ~~Which backend/auth?~~ | v1.1 | **Deferred** with sync; revisit after v1 evidence |
-| Recipe content licensing? | M2 | Own, public domain, or licensed; record provenance |
+| ~~Recipe content licensing?~~ | — | **Resolved:** built-ins are original work under MIT; each recipe records provenance |
 | ~~Free local + paid sync?~~ | v1.1 | **Deferred** with sync |
 | Default unit system? | M1 | Locale default with a user override |
 | Keep emoji or move to photos? | M2+ | Licensing and performance cost |

@@ -76,11 +76,12 @@ describe('built-in tray', () => {
 });
 
 describe('built-in recipes', () => {
-  it('are three dozen-ish, with unique ids and real steps', () => {
-    expect(recipes.length).toBeGreaterThanOrEqual(30);
-    expect(recipes.length).toBeLessThanOrEqual(40);
+  it('has at least 150 recipes, with unique ids and names and real steps', () => {
+    expect(recipes.length).toBeGreaterThanOrEqual(150);
     const ids = recipes.map((r) => r.id);
     expect(new Set(ids).size).toBe(ids.length);
+    const names = recipes.map((r) => r.name.trim().toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
     for (const recipe of recipes) {
       expect(recipe.steps.length, recipe.id).toBeGreaterThanOrEqual(3);
     }
@@ -92,12 +93,15 @@ describe('built-in recipes', () => {
     }
   });
 
-  it('only call for ingredients in the tray, with positive whole amounts', () => {
+  it('only call for ingredients in the tray, once each, with positive whole amounts', () => {
     const known = new Set(ingredients.map((i) => i.id));
     for (const recipe of recipes) {
       expect(recipe.ingredients.length, recipe.id).toBeGreaterThan(0);
+      const used = new Set<string>();
       for (const ri of recipe.ingredients) {
         expect(known.has(ri.ingredientId), `${recipe.id} -> ${ri.ingredientId}`).toBe(true);
+        expect(used.has(ri.ingredientId), `${recipe.id} repeats ${ri.ingredientId}`).toBe(false);
+        used.add(ri.ingredientId);
         expect(Number.isInteger(ri.amount) && ri.amount > 0, `${recipe.id} -> ${ri.amount}`).toBe(true);
       }
     }
@@ -111,6 +115,15 @@ describe('built-in recipes', () => {
       r.ingredients.some((ri) => meatIds.has(ri.ingredientId)),
     );
     expect(meatRecipes.length).toBeGreaterThanOrEqual(9);
+  });
+
+  it('records provenance and licensing for every built-in recipe', () => {
+    for (const recipe of recipes) {
+      expect(recipe.source, recipe.id).toBeDefined();
+      expect(['original', 'public-domain', 'licensed']).toContain(recipe.source!.kind);
+      expect(recipe.source!.author.trim(), recipe.id).not.toBe('');
+      expect(recipe.source!.license.trim(), recipe.id).not.toBe('');
+    }
   });
 
   it('gives every built-in recipe known time and meal metadata', () => {
