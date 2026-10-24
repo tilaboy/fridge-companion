@@ -8,6 +8,8 @@
 import {
   SEEDED_CATEGORIES,
   acceptedUnits,
+  addCustomIngredient,
+  addCustomRecipe,
   addToShoppingList,
   addToStock,
   buyShoppingListItem,
@@ -37,6 +39,7 @@ import {
   pushUndo,
   recommend,
   remoteStateFromRaw,
+  roundAmount,
   sameState,
   stockTotals,
   summarizeState,
@@ -54,7 +57,15 @@ import {
   saveState,
 } from './store/localStore';
 
-const catalog = createCatalog(ingredients, recipes);
+const baseCatalog = createCatalog(ingredients, recipes);
+  var catalog = baseCatalog; // built-ins plus whatever this kitchen added
+
+  function rebuildCatalog() {
+    catalog = createCatalog(
+      ingredients.concat(state.customIngredients || []),
+      recipes.concat(state.customRecipes || [])
+    );
+  }
 
   var state = createState();
   var session = {
@@ -63,7 +74,8 @@ const catalog = createCatalog(ingredients, recipes);
     openBubble: null, // the category bubble currently swelled open
     clickTimer: null, // disambiguates click (prompt) from double-click (quick add)
     clickItemId: null,
-    suppressClick: false // set by a drag so its release opens nothing
+    suppressClick: false, // set by a drag so its release opens nothing
+    recipeDraft: [] // custom-recipe builder rows, canonical amounts
   };
   var els = {};
   var openPick = null; // the recommendation currently centered
@@ -77,6 +89,28 @@ const catalog = createCatalog(ingredients, recipes);
   function init() {
     els.seedList = document.getElementById('seed-list');
     els.stapleList = document.getElementById('staple-list');
+    els.customIngredientForm = document.getElementById('custom-ingredient-form');
+    els.customName = document.getElementById('custom-ingredient-name');
+    els.customEmoji = document.getElementById('custom-ingredient-emoji');
+    els.customCategory = document.getElementById('custom-ingredient-category');
+    els.customUnit = document.getElementById('custom-ingredient-unit');
+    els.customDensity = document.getElementById('custom-ingredient-density');
+    els.customError = document.getElementById('custom-ingredient-error');
+    els.customStatus = document.getElementById('custom-ingredient-status');
+    els.customRecipeForm = document.getElementById('custom-recipe-form');
+    els.customRecipeName = document.getElementById('custom-recipe-name');
+    els.customRecipeEmoji = document.getElementById('custom-recipe-emoji');
+    els.customRecipeIngredient = document.getElementById('custom-recipe-ingredient');
+    els.customRecipeAmount = document.getElementById('custom-recipe-amount');
+    els.customRecipeUnit = document.getElementById('custom-recipe-unit');
+    els.customRecipeAddRow = document.getElementById('custom-recipe-add-row');
+    els.customRecipeDraft = document.getElementById('custom-recipe-draft');
+    els.customRecipeSteps = document.getElementById('custom-recipe-steps');
+    els.customRecipeError = document.getElementById('custom-recipe-error');
+    els.customRecipeRowError = document.getElementById('custom-recipe-row-error');
+    els.customRecipeStatus = document.getElementById('custom-recipe-status');
+    els.customRecipeListWrap = document.getElementById('custom-recipe-list-wrap');
+    els.customRecipeList = document.getElementById('custom-recipe-list');
     els.addCategoryForm = document.getElementById('add-category-form');
     els.confirmCategories = document.getElementById('confirm-categories');
     els.categoryError = document.getElementById('category-error');
@@ -134,11 +168,26 @@ const catalog = createCatalog(ingredients, recipes);
 
     // A first visit adopts the seeded categories and opens straight onto the
     // fridge door — no setup screen in front of the app.
-    state = ensureCategories(loadState(catalog));
+    state = ensureCategories(loadState(baseCatalog));
+    rebuildCatalog();
     persist(state);
 
     renderSeedList();
     renderStapleList();
+    refreshCustomPanels();
+    els.customIngredientForm.addEventListener('submit', onAddCustomIngredient);
+    els.customUnit.addEventListener('change', syncDensityField);
+    syncDensityField();
+    els.customRecipeForm.addEventListener('submit', onSaveCustomRecipe);
+    els.customRecipeIngredient.addEventListener('change', syncRecipeUnitOptions);
+    els.customRecipeAddRow.addEventListener('click', onAddRecipeRow);
+    els.customRecipeAmount.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        onAddRecipeRow();
+      }
+    });
+    els.customRecipeDraft.addEventListener('click', onRemoveRecipeRow);
     els.addCategoryForm.addEventListener('submit', onAddCategory);
     els.confirmCategories.addEventListener('click', onConfirmCategories);
     els.exportButton.addEventListener('click', onExport);
@@ -268,7 +317,7 @@ const catalog = createCatalog(ingredients, recipes);
   /* Import is destructive, so it asks first unless this kitchen is empty —
    * and it replaces state only after the payload has been validated. */
   function applyImport(text) {
-    var result = parseImportPayload(catalog, text);
+    var result = parseImportPayload(baseCatalog, text);
     if (!result.ok) {
       els.dataStatus.textContent = result.error;
       announce(result.error);
@@ -283,12 +332,14 @@ const catalog = createCatalog(ingredients, recipes);
     }
     state = result.state;
     clearUndo();
+    rebuildCatalog();
     persist(state);
     closePrompt();
     closeRecipeView();
     closeRecommendations();
     renderSeedList();
     renderStapleList();
+    refreshCustomPanels();
     renderAll();
     els.dataStatus.textContent = 'Imported ' + detail + '.';
     announce('Kitchen imported: ' + detail + '.');
@@ -304,12 +355,14 @@ const catalog = createCatalog(ingredients, recipes);
     clearStoredKitchen(getStorage());
     clearUndo();
     state = ensureCategories(createState());
+    rebuildCatalog();
     persist(state);
     closePrompt();
     closeRecipeView();
     closeRecommendations();
     renderSeedList();
     renderStapleList();
+    refreshCustomPanels();
     renderAll();
     els.dataStatus.textContent = 'Kitchen cleared. Start fresh by opening a bubble.';
     announce('Kitchen cleared.');
@@ -334,15 +387,17 @@ const catalog = createCatalog(ingredients, recipes);
   /* Re-read from storage rather than trusting a payload: storage is the
    * source of truth, so a tab can never apply a half-written message. */
   function receiveRemoteState(raw) {
-    var incoming = remoteStateFromRaw(catalog, raw);
+    var incoming = remoteStateFromRaw(baseCatalog, raw);
     if (!incoming || sameState(incoming, state)) return;
     state = incoming;
+    rebuildCatalog();
     clearUndo(); // snapshots from before the other tab's change would clobber it
     // A recipe card or pick list built against the old kitchen is stale now.
     closeRecipeView();
     closeRecommendations();
     renderSeedList(); // the categories disclosure is not part of renderAll
     renderStapleList();
+    refreshCustomPanels();
     renderAll();
     announce('The kitchen changed in another tab.');
   }
@@ -430,6 +485,253 @@ const catalog = createCatalog(ingredients, recipes);
     });
   }
 
+  function refreshCustomPanels() {
+    renderCustomIngredientForm();
+    renderCustomRecipeForm();
+    renderCustomRecipeList();
+  }
+
+  function renderCustomRecipeForm() {
+    // Undo or import can remove an ingredient a draft row pointed at.
+    session.recipeDraft = session.recipeDraft.filter(function (row) {
+      return !!getIngredient(catalog, row.ingredientId);
+    });
+
+    var current = els.customRecipeIngredient.value;
+    els.customRecipeIngredient.innerHTML = '';
+    catalog.ingredients.slice().sort(function (a, b) {
+      return a.name.localeCompare(b.name);
+    }).forEach(function (ing) {
+      var option = document.createElement('option');
+      option.value = ing.id;
+      option.textContent = ing.emoji + ' ' + ing.name;
+      els.customRecipeIngredient.appendChild(option);
+    });
+    if (catalog.ingredients.some(function (ing) { return ing.id === current; })) {
+      els.customRecipeIngredient.value = current;
+    }
+    syncRecipeUnitOptions();
+    renderRecipeDraft();
+  }
+
+  function syncRecipeUnitOptions() {
+    var ing = getIngredient(catalog, els.customRecipeIngredient.value);
+    var current = els.customRecipeUnit.value;
+    els.customRecipeUnit.innerHTML = '';
+    if (!ing) return;
+    var units = acceptedUnits(ing);
+    units.forEach(function (unit) {
+      var option = document.createElement('option');
+      option.value = unit;
+      option.textContent = unit;
+      els.customRecipeUnit.appendChild(option);
+    });
+    els.customRecipeUnit.value = units.indexOf(current) >= 0 ? current : ing.unit;
+  }
+
+  function onAddRecipeRow() {
+    var ing = getIngredient(catalog, els.customRecipeIngredient.value);
+    if (!ing) {
+      els.customRecipeRowError.textContent = 'Pick an ingredient.';
+      els.customRecipeRowError.classList.remove('hidden');
+      return;
+    }
+    var amount = parseAmount(els.customRecipeAmount.value);
+    if (amount === null || !isValidAmount(amount)) {
+      els.customRecipeRowError.textContent = 'Type a positive amount, like 2 or 1/2.';
+      els.customRecipeRowError.classList.remove('hidden');
+      els.customRecipeAmount.focus();
+      return;
+    }
+    var canonical = toCanonical(ing, amount, els.customRecipeUnit.value);
+    if (canonical === null || !isValidAmount(canonical)) {
+      els.customRecipeRowError.textContent = 'That amount does not fit that unit.';
+      els.customRecipeRowError.classList.remove('hidden');
+      els.customRecipeAmount.focus();
+      return;
+    }
+
+    var existing = null;
+    session.recipeDraft.forEach(function (row) {
+      if (row.ingredientId === ing.id) existing = row;
+    });
+    if (existing) {
+      existing.amount = roundAmount(existing.amount + canonical);
+    } else {
+      session.recipeDraft.push({ ingredientId: ing.id, amount: canonical });
+    }
+    els.customRecipeAmount.value = '';
+    els.customRecipeRowError.classList.add('hidden');
+    renderRecipeDraft();
+    els.customRecipeAmount.focus();
+  }
+
+  function onRemoveRecipeRow(e) {
+    var button = e.target && e.target.closest ? e.target.closest('button[data-draft-index]') : null;
+    if (!button) return;
+    var index = Number(button.dataset.draftIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= session.recipeDraft.length) return;
+    session.recipeDraft.splice(index, 1);
+    renderRecipeDraft();
+  }
+
+  function renderRecipeDraft() {
+    els.customRecipeDraft.innerHTML = '';
+    if (session.recipeDraft.length === 0) {
+      var empty = document.createElement('li');
+      empty.className = 'draft-empty';
+      empty.textContent = 'No ingredients yet.';
+      els.customRecipeDraft.appendChild(empty);
+      return;
+    }
+    session.recipeDraft.forEach(function (row, index) {
+      var ing = getIngredient(catalog, row.ingredientId);
+      if (!ing) return;
+      var li = document.createElement('li');
+      li.className = 'custom-draft-row';
+      var emoji = document.createElement('span');
+      emoji.setAttribute('aria-hidden', 'true');
+      emoji.textContent = ing.emoji;
+      var name = document.createElement('span');
+      name.className = 'draft-name';
+      name.textContent = ing.name;
+      var amount = document.createElement('span');
+      amount.className = 'draft-amount';
+      amount.textContent = formatAmount(ing, row.amount);
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'draft-remove';
+      remove.dataset.draftIndex = String(index);
+      remove.setAttribute('aria-label', 'Remove ' + ing.name);
+      remove.textContent = '\u00d7';
+      li.appendChild(emoji);
+      li.appendChild(name);
+      li.appendChild(amount);
+      li.appendChild(remove);
+      els.customRecipeDraft.appendChild(li);
+    });
+  }
+
+  function renderCustomRecipeList() {
+    els.customRecipeList.innerHTML = '';
+    var list = state.customRecipes || [];
+    els.customRecipeListWrap.classList.toggle('hidden', list.length === 0);
+    list.forEach(function (recipe) {
+      var li = document.createElement('li');
+      li.className = 'custom-draft-row';
+      var emoji = document.createElement('span');
+      emoji.setAttribute('aria-hidden', 'true');
+      emoji.textContent = recipe.dishEmoji;
+      var name = document.createElement('span');
+      name.className = 'draft-name';
+      name.textContent = recipe.name;
+      var meta = document.createElement('span');
+      meta.className = 'draft-amount';
+      meta.textContent = recipe.ingredients.length +
+        (recipe.ingredients.length === 1 ? ' ingredient' : ' ingredients') +
+        ' \u00b7 ' + recipe.steps.length + (recipe.steps.length === 1 ? ' step' : ' steps');
+      li.appendChild(emoji);
+      li.appendChild(name);
+      li.appendChild(meta);
+      els.customRecipeList.appendChild(li);
+    });
+  }
+
+  function onSaveCustomRecipe(e) {
+    e.preventDefault();
+    var result = addCustomRecipe(catalog, state, {
+      name: els.customRecipeName.value,
+      dishEmoji: els.customRecipeEmoji.value,
+      ingredients: session.recipeDraft,
+      steps: els.customRecipeSteps.value.split(/\r?\n/)
+    });
+    if (!result.ok) {
+      els.customRecipeError.textContent = result.error;
+      els.customRecipeError.classList.remove('hidden');
+      els.customRecipeStatus.textContent = '';
+      return;
+    }
+
+    remember('recipe', 'Saved ' + result.recipe.name + '.', state);
+    state = result.state;
+    persist(state);
+    rebuildCatalog();
+    session.recipeDraft = [];
+    els.customRecipeName.value = '';
+    els.customRecipeEmoji.value = '';
+    els.customRecipeAmount.value = '';
+    els.customRecipeSteps.value = '';
+    els.customRecipeError.classList.add('hidden');
+    els.customRecipeRowError.classList.add('hidden');
+    els.customRecipeStatus.textContent = 'Saved ' + result.recipe.name + '.';
+    renderRecipeDraft();
+    renderCustomRecipeList();
+    if (!els.recSection.classList.contains('hidden')) renderRecommendations();
+    announce(result.recipe.name + ' saved to your recipes.');
+    els.customRecipeName.focus();
+  }
+
+  function renderCustomIngredientForm() {
+    var current = els.customCategory.value;
+    els.customCategory.innerHTML = '';
+    state.categories.forEach(function (category) {
+      var option = document.createElement('option');
+      option.value = category.id;
+      option.textContent = category.name;
+      els.customCategory.appendChild(option);
+    });
+    if (state.categories.some(function (category) { return category.id === current; })) {
+      els.customCategory.value = current;
+    }
+    syncDensityField();
+  }
+
+  function syncDensityField() {
+    var countable = els.customUnit.value === 'pcs' || els.customUnit.value === 'cloves' ||
+      els.customUnit.value === 'slices' || els.customUnit.value === 'bunch';
+    els.customDensity.disabled = countable;
+    if (countable) {
+      els.customDensity.value = '';
+      els.customDensity.placeholder = 'Not used for count units';
+    } else {
+      els.customDensity.placeholder = 'Density g/ml (optional)';
+    }
+  }
+
+  function onAddCustomIngredient(e) {
+    e.preventDefault();
+    var result = addCustomIngredient(catalog, state, {
+      name: els.customName.value,
+      emoji: els.customEmoji.value,
+      categoryId: els.customCategory.value,
+      unit: els.customUnit.value,
+      densityGPerMl: els.customDensity.value
+    });
+    if (!result.ok) {
+      els.customError.textContent = result.error;
+      els.customError.classList.remove('hidden');
+      els.customStatus.textContent = '';
+      els.customName.focus();
+      return;
+    }
+
+    remember('ingredients', 'Added ' + result.ingredient.name + ' to the tray.', state);
+    state = result.state;
+    persist(state);
+    rebuildCatalog();
+    els.customError.classList.add('hidden');
+    els.customStatus.textContent = 'Added ' + result.ingredient.name + '.';
+    els.customName.value = '';
+    els.customEmoji.value = '';
+    els.customDensity.value = '';
+    renderStapleList();
+    renderCustomRecipeForm();
+    renderAll();
+    if (!els.recSection.classList.contains('hidden')) renderRecommendations();
+    announce(result.ingredient.name + ' added to the tray.');
+    els.customName.focus();
+  }
+
   function onToggleStaple(ingredientId, staple) {
     var ing = getIngredient(catalog, ingredientId);
     if (!ing) return;
@@ -501,6 +803,7 @@ const catalog = createCatalog(ingredients, recipes);
     state.categories = confirmCategories(chosen);
     persist(state);
     renderSeedList();
+    renderCustomIngredientForm();
     renderAll();
   }
 
@@ -849,11 +1152,13 @@ const catalog = createCatalog(ingredients, recipes);
     }
     undoStack = result.rest;
     state = result.entry.state;
+    rebuildCatalog();
     persist(state);
     closePrompt();
     closeRecipeView();
     closeRecommendations();
     renderStapleList(); // an undone staple change must move its checkboxes back
+    refreshCustomPanels();
     renderAll();
     announce('Undid ' + result.entry.kind + '.');
     if (undoStack.length > 0) {

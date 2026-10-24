@@ -5,12 +5,46 @@
  * undo step without worrying about aliasing.
  */
 import { addLot } from './lots';
-import type { Category, KitchenState, ShoppingItem, StateSummary, Stock, StockLot } from './types';
+import type {
+  Category,
+  Ingredient,
+  KitchenState,
+  Recipe,
+  ShoppingItem,
+  StateSummary,
+  Stock,
+  StockLot,
+} from './types';
+
+function cloneIngredient(ingredient: Ingredient): Ingredient {
+  const copy: Ingredient = {
+    id: ingredient.id,
+    name: ingredient.name,
+    emoji: ingredient.emoji,
+    categoryId: ingredient.categoryId,
+    unit: ingredient.unit,
+  };
+  if (ingredient.densityGPerMl !== undefined) copy.densityGPerMl = ingredient.densityGPerMl;
+  if (ingredient.staple !== undefined) copy.staple = ingredient.staple;
+  return copy;
+}
+
+function cloneRecipe(recipe: Recipe): Recipe {
+  return {
+    id: recipe.id,
+    name: recipe.name,
+    dishEmoji: recipe.dishEmoji,
+    ingredients: recipe.ingredients.map((ri) => ({ ingredientId: ri.ingredientId, amount: ri.amount })),
+    steps: recipe.steps.slice(),
+  };
+}
 
 export function createState(): KitchenState {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     categories: [],
+    customIngredients: [],
+    customRecipes: [],
     stockLots: [],
     shoppingList: [],
     stapleOverrides: {},
@@ -21,6 +55,8 @@ export function cloneState(state: KitchenState): KitchenState {
   return {
     schemaVersion: state.schemaVersion,
     categories: state.categories.map((category) => ({ id: category.id, name: category.name })),
+    customIngredients: (state.customIngredients ?? []).map(cloneIngredient),
+    customRecipes: (state.customRecipes ?? []).map(cloneRecipe),
     stockLots: state.stockLots.map(
       (lot): StockLot => ({
         id: lot.id,

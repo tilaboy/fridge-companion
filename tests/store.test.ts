@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createState } from '../src/domain/state';
 import { clearStoredKitchen } from '../src/domain/storage';
 import { stockTotals } from '../src/domain/lots';
+import { SCHEMA_VERSION } from '../src/domain/transfer';
 import type { KitchenState } from '../src/domain/types';
 import {
   STORAGE_KEY,
@@ -68,7 +69,7 @@ describe('loadState', () => {
     // Unknown kept on load, staples dropped, v1 stock migrated to lots.
     // Fractional amounts are valid now.
     expect(stockTotals(loaded.stockLots)).toEqual({ tomato: 2, egg: 1.5, ghost: 4 });
-    expect(loaded.schemaVersion).toBe(2);
+    expect(loaded.schemaVersion).toBe(SCHEMA_VERSION);
     expect(loaded.shoppingList).toEqual([
       { ingredientId: 'onion', amount: 2, fromRecipeId: null },
     ]);

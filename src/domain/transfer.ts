@@ -11,19 +11,22 @@ import type { Catalog } from './catalog';
 import { getIngredient, getRecipe } from './catalog';
 import { isValidAmount } from './amount';
 import { confirmCategories, ensureCategories } from './categories';
+import { sanitizeCustomIngredients, sanitizeCustomRecipes } from './custom';
 import { normalizeExpiry } from './lots';
 import { effectiveStapleIds } from './staples';
 import { cloneState, createState, isEmptyKitchen, summarizeState } from './state';
 import type {
   ExportEnvelope,
   ImportResult,
+  Ingredient,
   KitchenState,
+  Recipe,
   ShoppingItem,
   StockLot,
 } from './types';
 
 export const APP_ID = 'fridge-companion';
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -114,6 +117,22 @@ function sanitizeLots(
   return lots;
 }
 
+function mergeCatalog(
+  catalog: Catalog,
+  customIngredients: readonly Ingredient[],
+  customRecipes: readonly Recipe[],
+): Catalog {
+  const ingredients = catalog.ingredients.concat(customIngredients);
+  const recipes = catalog.recipes.concat(customRecipes);
+  return {
+    ingredients,
+    recipes,
+    ingredientById: new Map(ingredients.map((ingredient) => [ingredient.id, ingredient])),
+    recipeById: new Map(recipes.map((recipe) => [recipe.id, recipe])),
+    stapleIds: catalog.stapleIds,
+  };
+}
+
 /**
  * Drop everything that does not match the data model, migrating v1 stock on
  * the way. `knownOnly` is for imported files, where a reference to an
@@ -138,14 +157,28 @@ export function sanitizeState(
   // Read staple choices before stock: a built-in staple the user unmarked
   // must keep its lots, while one they marked must lose them.
   fresh.stapleOverrides = sanitizeStapleOverrides(catalog, record.stapleOverrides, knownOnly);
-  const staples = effectiveStapleIds(catalog, fresh);
+
+  // Custom definitions come before stock and recipes: lots, shopping refs,
+  // and recipe ingredients all resolve against the merged tray.
+  fresh.customIngredients = sanitizeCustomIngredients(
+    catalog,
+    record.customIngredients,
+    fresh.categories,
+  );
+  fresh.customRecipes = sanitizeCustomRecipes(
+    catalog,
+    record.customRecipes,
+    fresh.customIngredients,
+  );
+  const mergedCatalog = mergeCatalog(catalog, fresh.customIngredients, fresh.customRecipes);
+  const staples = effectiveStapleIds(mergedCatalog, fresh);
 
   if (Array.isArray(record.stockLots)) {
-    fresh.stockLots = sanitizeLots(catalog, record.stockLots, knownOnly, now, staples);
+    fresh.stockLots = sanitizeLots(mergedCatalog, record.stockLots, knownOnly, now, staples);
   } else {
     const legacyStock = asRecord(record.stock);
     if (legacyStock) {
-      fresh.stockLots = migrateStock(catalog, legacyStock, knownOnly, now, staples);
+      fresh.stockLots = migrateStock(mergedCatalog, legacyStock, knownOnly, now, staples);
     }
   }
 
@@ -157,12 +190,12 @@ export function sanitizeState(
           !!entry &&
           typeof entry.ingredientId === 'string' &&
           isValidAmount(Number(entry.amount)) &&
-          (!knownOnly || !!getIngredient(catalog, entry.ingredientId))
+          (!knownOnly || !!getIngredient(mergedCatalog, entry.ingredientId))
         );
       })
       .map((item): ShoppingItem => {
         let fromRecipeId = typeof item.fromRecipeId === 'string' ? item.fromRecipeId : null;
-        if (knownOnly && fromRecipeId && !getRecipe(catalog, fromRecipeId)) {
+        if (knownOnly && fromRecipeId && !getRecipe(mergedCatalog, fromRecipeId)) {
           fromRecipeId = null;
         }
         return {
@@ -197,6 +230,8 @@ function looksLikeKitchen(value: unknown): boolean {
   if (!record) return false;
   return (
     Array.isArray(record.categories) ||
+    Array.isArray(record.customIngredients) ||
+    Array.isArray(record.customRecipes) ||
     Array.isArray(record.stockLots) ||
     !!asRecord(record.stock) ||
     Array.isArray(record.shoppingList)

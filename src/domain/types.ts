@@ -74,6 +74,10 @@ export interface KitchenState {
   /** The payload version. v1 carried a bare `stock` map instead of lots. */
   schemaVersion: number;
   categories: Category[];
+  /** Tray ingredients the kitchen added itself. Sanitized and de-duplicated. */
+  customIngredients: Ingredient[];
+  /** Recipes the kitchen added itself. References resolve against the tray. */
+  customRecipes: Recipe[];
   stockLots: StockLot[];
   shoppingList: ShoppingItem[];
   /**

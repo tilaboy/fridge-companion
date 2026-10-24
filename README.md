@@ -8,18 +8,21 @@ and its history is carried over here.
 
 ## Status
 
-**M0 (safe hands) is done.** Live at
+**M0 (safe hands) and M1 (a fridge you can trust) are done.** Live at
 **https://tilaboy.github.io/fridge-companion/** — installable, works offline,
-and can no longer lose a kitchen silently. M1 (the v2 kitchen) is under way: the
-pure domain is now typed modules with a real test suite, and the browser runs a
-Vite-built shell on top of it. Schema 2 holds stock as lots with optional expiry
-(so the fridge can say "use this first"); v1 kitchens migrate in place. Amounts
-now take fractions and units: `½ kg` of beef is stored as `500 g` and satisfies
-a `250 g` recipe, and mass ↔ volume converts when the ingredient declares a
-density. Pantry staples are configurable per kitchen — marking one clears its
-stock and shopping entries, and undo restores them. Cooking, restocking, and
-shopping purchases can be undone from a toast that restores the exact prior
-kitchen. Custom ingredients and recipes are next, per the
+and can no longer lose a kitchen silently. The pure domain is typed modules
+with a real test suite, and the browser runs a Vite-built shell on top of it.
+Schema 3 holds stock as lots with optional expiry (so the fridge can say "use
+this first") plus the kitchen's own ingredients and recipes; v1 and v2 kitchens
+migrate in place. Amounts take fractions and units: `½ kg` of beef is stored as
+`500 g` and satisfies a `250 g` recipe, and mass ↔ volume converts when the
+ingredient declares a density. Pantry staples are configurable per kitchen —
+marking one clears its stock and shopping entries, and undo restores them. You
+can add your own ingredients (with a category, unit, and optional density) and
+recipes (ingredient rows plus steps); names are validated and de-duplicated,
+and both join recommendations, export/import, and cross-tab sync. Cooking,
+restocking, and shopping purchases can be undone from a toast that restores the
+exact prior kitchen. Next: M2 — diet and allergen filters, per the
 [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and

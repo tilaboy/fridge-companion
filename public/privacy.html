@@ -25,7 +25,8 @@
       <h2>What the app stores</h2>
       <p>
         Your categories, the amounts in your fridge, your pantry-staple choices,
-        and your shopping list are saved in your browser's own storage (today the <code>fdc-state-v1</code>
+        the ingredients and recipes you add yourself, and your shopping list are
+        saved in your browser's own storage (today the <code>fdc-state-v1</code>
         key in <code>localStorage</code>; the planned move to IndexedDB changes
         where, not who can read it). That data never leaves your device unless
         you export it.
@@ -48,9 +49,9 @@
       <h2>Export and import</h2>
       <p>
         <strong>Export kitchen</strong> writes a JSON file to your device with
-        your categories, stock, staple choices, and shopping list. Where that file goes is up to
-        you — treat it as you would any personal note, because it describes your
-        home. <strong>Import kitchen</strong> reads a file you choose, validates
+        your categories, stock, staple choices, custom ingredients and recipes,
+        and shopping list. Where that file goes is up to you — treat it as you
+        would any personal note, because it describes your home. <strong>Import kitchen</strong> reads a file you choose, validates
         it, and replaces the kitchen in this browser only after you confirm.
       </p>
 
@@ -73,7 +74,7 @@
 
       <h2>Recipes and attribution</h2>
       <p>
-        The built-in recipes and ingredient data live in <code>data/</code> in the
+        The built-in recipes and ingredient data live in <code>src/data/</code> in the
         <a href="https://github.com/tilaboy/fridge-companion">source repository</a>.
         Provenance is recorded as the collection grows; third-party material will
         be attributed when it is added (roadmap M2).

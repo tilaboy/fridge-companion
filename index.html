@@ -104,6 +104,60 @@
           <ul id="staple-list" class="seed-list staple-list"></ul>
         </details>
 
+        <details id="custom-ingredient-panel" class="categories-panel">
+          <summary class="categories-summary">Add your own ingredient</summary>
+          <form id="custom-ingredient-form" class="custom-form" autocomplete="off">
+            <div class="custom-row">
+              <input id="custom-ingredient-name" type="text" maxlength="40" placeholder="Name, e.g. shiitake" aria-label="Ingredient name">
+              <input id="custom-ingredient-emoji" type="text" maxlength="16" placeholder="&#129387;" aria-label="Emoji (optional)">
+            </div>
+            <div class="custom-row">
+              <select id="custom-ingredient-category" aria-label="Category"></select>
+              <select id="custom-ingredient-unit" aria-label="Unit">
+                <option value="g">grams</option>
+                <option value="ml">millilitres</option>
+                <option value="pcs">pieces</option>
+                <option value="cloves">cloves</option>
+                <option value="slices">slices</option>
+                <option value="bunch">bunch</option>
+              </select>
+            </div>
+            <input id="custom-ingredient-density" class="custom-density" type="text" inputmode="decimal" placeholder="Density g/ml (optional)" aria-label="Density, grams per millilitre (optional)">
+            <p class="custom-hint">Density lets you type ml for a gram ingredient, and the reverse.</p>
+            <button type="submit" class="btn btn-primary btn-small">Add ingredient</button>
+            <p id="custom-ingredient-error" class="category-error hidden" role="alert"></p>
+            <p id="custom-ingredient-status" class="data-status" role="status" aria-live="polite"></p>
+          </form>
+        </details>
+
+        <details id="custom-recipe-panel" class="categories-panel">
+          <summary class="categories-summary">Add your own recipe</summary>
+          <form id="custom-recipe-form" class="custom-form" autocomplete="off">
+            <div class="custom-row">
+              <input id="custom-recipe-name" type="text" maxlength="60" placeholder="Recipe name" aria-label="Recipe name">
+              <input id="custom-recipe-emoji" type="text" maxlength="16" placeholder="&#127869;" aria-label="Dish emoji (optional)">
+            </div>
+            <p class="custom-hint">Pick what it needs one ingredient at a time.</p>
+            <div class="custom-row recipe-builder">
+              <select id="custom-recipe-ingredient" aria-label="Recipe ingredient"></select>
+              <input id="custom-recipe-amount" type="text" inputmode="decimal" placeholder="Amount" aria-label="Ingredient amount">
+              <select id="custom-recipe-unit" aria-label="Ingredient unit"></select>
+              <button id="custom-recipe-add-row" type="button" class="btn btn-small">Add</button>
+            </div>
+            <p id="custom-recipe-row-error" class="category-error hidden" role="alert"></p>
+            <ul id="custom-recipe-draft" class="custom-draft"></ul>
+            <label class="custom-label" for="custom-recipe-steps">Steps, one per line</label>
+            <textarea id="custom-recipe-steps" rows="3" maxlength="12000" placeholder="Simmer the tomatoes&#10;Stir in the pasta"></textarea>
+            <button type="submit" class="btn btn-primary btn-small">Save recipe</button>
+            <p id="custom-recipe-error" class="category-error hidden" role="alert"></p>
+            <p id="custom-recipe-status" class="data-status" role="status" aria-live="polite"></p>
+          </form>
+          <div id="custom-recipe-list-wrap" class="custom-recipe-list-wrap hidden">
+            <p class="custom-label">Your recipes</p>
+            <ul id="custom-recipe-list" class="custom-draft"></ul>
+          </div>
+        </details>
+
         <!-- Export is the backup of record (roadmap §2 principle 2, ADR-002).
              A kitchen file is also how two people share a fridge until sync
              exists. -->

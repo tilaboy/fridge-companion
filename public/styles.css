@@ -142,6 +142,87 @@ body {
   cursor: pointer;
 }
 
+/* ---------- adding your own ingredients and recipes ---------- */
+
+.custom-form { display: grid; gap: 8px; margin-top: 10px; }
+
+.custom-form > * { min-width: 0; }
+
+.custom-row { display: flex; gap: 8px; }
+
+.custom-row > * { flex: 1; min-width: 0; }
+
+.custom-form input,
+.custom-form select,
+.custom-form textarea {
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--card-edge);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.custom-form input:focus,
+.custom-form select:focus,
+.custom-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.custom-form input:disabled { background: rgba(0, 0, 0, .04); color: var(--ink-soft); }
+
+.custom-hint { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-soft); }
+
+.custom-form .btn { justify-self: start; }
+
+.custom-label { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--ink-soft); }
+
+.recipe-builder { display: grid; grid-template-columns: minmax(0, 1fr) 72px 78px auto; align-items: center; }
+
+.recipe-builder select,
+.recipe-builder input { width: 100%; }
+
+.custom-draft { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+
+.custom-draft-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .035);
+  font-size: 14px;
+}
+
+.custom-draft-row .draft-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.custom-draft-row .draft-amount { color: var(--ink-soft); font-size: 13px; white-space: nowrap; }
+
+.draft-remove {
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 17px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.draft-remove:hover { color: var(--ink); background: rgba(0, 0, 0, .06); }
+
+.draft-empty { padding: 2px 0; font-size: 13px; color: var(--ink-soft); }
+
+.custom-recipe-list-wrap { margin-top: 14px; display: grid; gap: 6px; }
+
+@media (max-width: 520px) {
+  .recipe-builder { grid-template-columns: minmax(0, 1fr) 76px; }
+  .recipe-builder .btn { justify-self: start; }
+}
+
+
 .seed-name {
   flex: 1;
   min-width: 0;

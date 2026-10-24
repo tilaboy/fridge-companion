@@ -34,7 +34,7 @@ describe('buildExport', () => {
       exportedAt: '2026-10-23T12:00:00.000Z',
       summary: { categories: 1, ingredients: 2, shoppingList: 1 },
     });
-    expect(envelope.state.schemaVersion).toBe(2);
+    expect(envelope.state.schemaVersion).toBe(SCHEMA_VERSION);
     expect(envelope.state.stockLots).toHaveLength(2);
   });
 
@@ -49,11 +49,11 @@ describe('buildExport', () => {
 });
 
 describe('exportJson', () => {
-  it('is valid JSON with a trailing newline and v2 lots', () => {
+  it('is valid JSON with a trailing newline and v3 lots', () => {
     const text = exportJson(sampleKitchen(), NOW);
     expect(text.endsWith('\n')).toBe(true);
     const state = JSON.parse(text).state;
-    expect(state.schemaVersion).toBe(2);
+    expect(state.schemaVersion).toBe(SCHEMA_VERSION);
     expect(stockTotals(state.stockLots)).toEqual({ tomato: 2, egg: 6 });
   });
 });
@@ -78,7 +78,7 @@ describe('parseImportPayload', () => {
     const result = parseImportPayload(catalog, raw);
     expect(result).toMatchObject({ ok: true, legacy: true, schemaVersion: 0 });
     if (!result.ok) throw new Error(result.error);
-    expect(result.state.schemaVersion).toBe(2);
+    expect(result.state.schemaVersion).toBe(SCHEMA_VERSION);
     expect(stockTotals(result.state.stockLots)).toEqual({ tomato: 3 });
     expect(result.state.stockLots[0]).toMatchObject({ expiresAt: null });
   });
@@ -187,7 +187,7 @@ describe('sanitizeState', () => {
     expect(second).toEqual(first);
   });
 
-  it('keeps valid v2 lots, expiry, and ids; repairs or drops the rest', () => {
+  it('keeps valid lots, expiry, and ids; repairs or drops the rest', () => {
     const clean = sanitizeState(catalog, {
       stockLots: [
         {

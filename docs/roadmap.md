@@ -125,7 +125,7 @@ Missing:
 | Area | Carry over | Replace / add |
 | --- | --- | --- |
 | Kernel | score = have ÷ need, amount-level check, staples exclusion, top-N | hard filters, expiry weighting, explanations, history |
-| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v2, stock lots, custom items, settings, migration |
+| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v3, stock lots, custom items, settings, migration |
 | Store | `loadState` / `saveState` seam | storage adapter interface + optional remote adapter |
 | UI | fridge-door metaphor, bubbles, pointer drag, reduced motion | focus management, keyboard path, dark mode, empty/error states |
 | Data | `data/ingredients.js`, `data/recipes.js` shape | richer schema, tags/allergens/time/servings, provenance |
@@ -194,9 +194,10 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 // Persisted state
 {
-  schemaVersion: 2,
+  schemaVersion: 3,
   categories,
   customIngredients,
+  customRecipes,
   stockLots,
   shoppingList,
   cookHistory,
@@ -229,22 +230,22 @@ to ask for moved to M1, where the v2 schema is built.
 **Done when:** a user can install it, use it offline, survive a cleared browser
 via export/import, and see a warning when a write fails.
 
-### M1 — A fridge you can trust (1–2 weeks)
+### M1 — A fridge you can trust ✅ complete 2026-10-24
 
-> **Progress (2026-10-23):** the module split is done. The kernel is typed
+> **Progress (2026-10-24):** the module split is done. The kernel is typed
 > (`src/domain/`) and tested; the UI is an ES module on top of it, built by Vite
 > into `dist/` and deployed by CI. The six node harnesses were ported into
 > Vitest tests (domain, store, data, journey, shell) before being deleted; a
 > temporary parity suite proved the extraction identical to v1 and retired with
-> the old copy. The suite is now 124 tests.
+> the old copy. The suite is now 138 tests.
 >
-> Schema 2 now stores `stockLots` (amount, optional expiry, arrival time) and
-> derives every total; cooking consumes the soonest-expiring batch first. The
+> Schema 2 introduced `stockLots` (amount, optional expiry, arrival time);
+> every total is derived from them, cooking consumes the soonest-expiring batch first. The
 > fridge shows expiry badges and sorts by use-soon, the amount prompt takes an
 > optional date, and the v1 `stock` map migrates in place on load or import —
 > idempotently, and covered by tests. Verified in Chrome: a lot created with a
 > date keeps it through reload and cooking, and a seeded v1 kitchen becomes one
-> v2 lot with staples dropped.
+> stock lot with staples dropped.
 >
 > Amounts now accept `0.5`, `1/2`, `1 1/2`, and `½`; the prompt offers the
 > ingredient's convertible units, and `½ kg` of beef is stored as 500 g. Mass and
@@ -271,15 +272,28 @@ via export/import, and see a warning when a write fails.
 > Chrome: salt leaves and rejoins the tray as its box changes, marking beef
 > empties its lot, and undo restores the lot and the unchecked box.
 >
-> Next: custom ingredients and recipes.
+> Custom ingredients and recipes now live in the kitchen itself. The state moved
+> to schema 3: older builds refuse an exported file rather than silently
+> dropping the new definitions, while v1 stock maps and v2 lots still import.
+> Names are compared case- and whitespace-insensitively, colliding ids are
+> repaired, recipes merge repeated ingredient rows, and unknown ingredients or
+> empty steps are refused. The door has an "Add your own ingredient" form
+> (category, canonical unit, optional density) and a recipe builder with draft
+> ingredient rows, removal, and per-line steps. Custom items join the tray,
+> recommendation scoring, export/import, cross-tab sync, and the existing undo
+> stack; undoing a definition also rebuilds the catalog. Verified in Chrome: a
+> custom ingredient took stock in ml through its density, survived reload, and
+> vanished from the tray on undo; a custom recipe with a custom ingredient was
+> recommended, cooked down its lots, refused a duplicate name, and survived
+> reload.
 
 - [x] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
 - [x] Stock lots with optional expiry; "use soon" ordering; expired badge.
-- [ ] Custom ingredients and recipes with validation and de-duplication.
+- [x] Custom ingredients and recipes with validation and de-duplication.
 - [x] Configurable staples per user.
 - [x] Undo for cook and restock; confirmation for destructive actions.
-- [x] Idempotent v1 → v2 migration covered by tests.
+- [x] Idempotent v1 → v3 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is
 visible, and undo restores the exact prior state.
