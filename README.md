@@ -31,10 +31,13 @@ ingredients carry conservative safety tags, dairy/egg/fish allergens are also
 derived from the diet class, and unknown custom metadata fails closed while a
 filter is active. All 35 built-in recipes carry cooking time and meal metadata;
 custom recipes can declare both, and recipes without them stay hidden while
-those filters are on. Cards show the time and meal they matched. Cooking,
-restocking, shopping purchases, and preference changes can be undone from a
-toast that restores the exact prior kitchen. Next: M2 card explanations,
-expiry-aware ranking, servings, and cook-history repetition avoidance, per the
+those filters are on. Cards show the time and meal they matched, plus a
+one-line reason for their place in the list: a complete recipe that can use up
+soon-expiring stock gets a lift and says which ingredient to use first, expired
+stock is de-prioritized and flagged, and otherwise the line states the fit.
+Cooking, restocking, shopping purchases, and preference changes can be undone
+from a toast that restores the exact prior kitchen. Next: M2 servings,
+cook-history repetition avoidance, and recipe provenance, per the
 [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and

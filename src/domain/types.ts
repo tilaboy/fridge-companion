@@ -159,14 +159,28 @@ export interface StateSummary {
   shoppingList: number;
 }
 
+/** The freshness signal considered when ranking a recommendation. */
+export interface ExpirySignal {
+  /** The ingredient whose date drove the weight, or null when no date applies. */
+  ingredientId: IngredientId | null;
+  expiresAt: string | null;
+  status: ExpiryStatus;
+  /** 1 when freshness does not affect the order; >1 soon, <1 expired. */
+  multiplier: number;
+}
+
 export interface ScoredRecipe {
   recipe: Recipe;
   have: number;
   missing: number;
   total: number;
   score: number;
-  /** fit × length bias; only present on ranked recommendations. */
+  /** fit × length bias × freshness; only present on ranked recommendations. */
   rank?: number;
+  /** The freshness signal behind the rank; only present on ranked picks. */
+  expiry?: ExpirySignal;
+  /** One deterministic line explaining the card's place in the list. */
+  explanation?: string;
 }
 
 export interface CategoryGroup {

@@ -12,7 +12,7 @@ This is a living document. Each milestone is independently shippable; tick the
 boxes as they land. In the new repo it belongs at `docs/roadmap.md`, next to the
 ADRs it references.
 
-Last updated: 2026-10-22.
+Last updated: 2026-10-24.
 
 ## 1. What the POC already proves
 
@@ -318,12 +318,13 @@ visible, and undo restores the exact prior state.
 
 ### M2 — Picks worth trusting (2–4 weeks)
 
-> Safety and time/meal slices landed: schema 5, built-in and custom ingredient
-> safety metadata, time and meal metadata on every built-in recipe, a Food
-> preferences panel, and hard diet/allergen/time/meal filtering before ranking.
+> Safety, time/meal, and freshness slices landed: schema 5, built-in and custom
+> ingredient safety metadata, time and meal metadata on every built-in recipe,
+> a Food preferences panel, hard diet/allergen/time/meal filtering before
+> ranking, expiry-weighted ordering, and a one-line reason on every card.
 > Unknown metadata fails closed, and cards show the time and meal they matched.
-> The remaining M2 work is expiry-weighted ranking, one-line card explanations,
-> servings, repetition avoidance, and recipe provenance.
+> The remaining M2 work is servings, repetition avoidance, and recipe
+> provenance.
 >
 > Schema 5 adds time and meal metadata. All 35 built-in recipes declare a
 > cooking time and at least one meal slot; custom recipes can declare both, and
@@ -334,10 +335,23 @@ visible, and undo restores the exact prior state.
 > filter, a 25-minute lunch and a legacy no-metadata recipe disappeared, dinner
 > hid the lunch recipes, the filters survived reload, undo restored the prior
 > filters, and an invalid custom time was refused.
+>
+> Freshness does not change the schema. A complete recipe that can use up a
+> tracked ingredient expiring within three days gets a ×1.2 rank lift; expired
+> stock is ×0.8, the card names the item, and the fit line says "check dates".
+> Partial recipes get no freshness nudge, because the kitchen cannot use the
+> ingredient until the missing items arrive. The displayed fit ratio stays
+> honest, and every card falls back to a fit line when no date drives the
+> order. Verified in Chrome:
+> soon-expiring spinach lifted "Spinach and Eggs" to first with "Use Spinach —
+> use by Oct 26"; after its date passed, "Cheese Toast" led, the spinach card
+> said "Spinach is past its date", and its fit line switched to "check dates";
+> complete and one-short cards showed their fit fallbacks. The reason line
+> stayed on one line at desktop and phone widths.
 
 - [x] Diet and allergen filters are hard constraints; never violated.
 - [x] Time budget and meal type filters.
-- [ ] Expiry-weighted ranking; each card states why it ranked.
+- [x] Expiry-weighted ranking; each card states why it ranked.
 - [ ] Servings scaling adjusts amounts and deductions.
 - [ ] Repetition avoidance from cook history.
 - [ ] 150+ recipes with recorded provenance and licensing.

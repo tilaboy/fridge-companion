@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createCatalog } from '../../src/domain/catalog';
+import { stockTotals } from '../../src/domain/lots';
 import {
+  EXPIRED_EXPIRY_PENALTY,
   LENGTH_BONUS,
+  SOON_EXPIRY_BOOST,
+  expiryMultiplier,
+  expiryWeightFor,
   lengthMultiplier,
   missingIngredients,
   recommend,
@@ -49,6 +54,63 @@ const book: Recipe[] = [
 
 const catalog = createCatalog(tray, book);
 
+const expiryTray: Ingredient[] = [
+  { id: 'spinach', name: 'Spinach', emoji: 'S', categoryId: 'produce', unit: 'bunch' },
+  { id: 'rice', name: 'Rice', emoji: 'R', categoryId: 'pantry', unit: 'g' },
+  { id: 'tomato', name: 'Tomato', emoji: 'T', categoryId: 'produce', unit: 'pcs' },
+];
+
+const expiryBook: Recipe[] = [
+  {
+    id: 'spinach-dish',
+    name: 'Spinach Dish',
+    dishEmoji: 'S',
+    ingredients: [{ ingredientId: 'spinach', amount: 1 }],
+    steps: [],
+  },
+  {
+    id: 'rice-dish',
+    name: 'Rice Dish',
+    dishEmoji: 'R',
+    ingredients: [{ ingredientId: 'rice', amount: 1 }],
+    steps: [],
+  },
+  {
+    id: 'pair-dish',
+    name: 'Pair Dish',
+    dishEmoji: 'P',
+    ingredients: [
+      { ingredientId: 'spinach', amount: 1 },
+      { ingredientId: 'rice', amount: 1 },
+    ],
+    steps: [],
+  },
+  {
+    id: 'needs-more-spinach',
+    name: 'Needs More Spinach',
+    dishEmoji: 'N',
+    ingredients: [
+      { ingredientId: 'spinach', amount: 2 },
+      { ingredientId: 'rice', amount: 1 },
+    ],
+    steps: [],
+  },
+  {
+    id: 'three-dish',
+    name: 'Three Dish',
+    dishEmoji: 'T',
+    ingredients: [
+      { ingredientId: 'spinach', amount: 1 },
+      { ingredientId: 'rice', amount: 1 },
+      { ingredientId: 'tomato', amount: 1 },
+    ],
+    steps: [],
+  },
+];
+
+const expiryCatalog = createCatalog(expiryTray, expiryBook);
+const expiryNow = new Date('2026-10-23T12:00:00');
+
 const kitchen = (stock: Record<string, number>): KitchenState => kitchenWithStock(stock);
 
 describe('scoreRecipe', () => {
@@ -80,6 +142,145 @@ describe('length bias', () => {
     expect(lengthMultiplier(0)).toBe(1);
     expect(lengthMultiplier(3)).toBeCloseTo(1.3);
     expect(lengthMultiplier(5)).toBeCloseTo(1.5);
+  });
+});
+
+describe('expiry weighting', () => {
+  it('maps freshness statuses to stable multipliers', () => {
+    expect(expiryMultiplier('none')).toBe(1);
+    expect(expiryMultiplier('later')).toBe(1);
+    expect(expiryMultiplier('soon')).toBe(SOON_EXPIRY_BOOST);
+    expect(expiryMultiplier('expired')).toBe(EXPIRED_EXPIRY_PENALTY);
+  });
+
+  it('lifts a recipe that can use up a soon-expiring ingredient', () => {
+    const state = kitchenWithStock(
+      { spinach: 1, rice: 1 },
+      { expiresAt: { spinach: '2026-10-24' } },
+    );
+    const picks = recommend(
+      expiryCatalog,
+      state,
+      [expiryBook[0]!, expiryBook[1]!],
+      expiryNow,
+    );
+    expect(picks.map((pick) => pick.recipe.id)).toEqual(['spinach-dish', 'rice-dish']);
+    const pick = picks[0]!;
+    expect(pick.expiry).toEqual({
+      ingredientId: 'spinach',
+      expiresAt: '2026-10-24',
+      status: 'soon',
+      multiplier: SOON_EXPIRY_BOOST,
+    });
+    expect(pick.rank).toBeCloseTo(lengthMultiplier(1) * SOON_EXPIRY_BOOST);
+    expect(pick.explanation).toMatch(/^Use Spinach \u2014 use by /);
+  });
+
+  it('damps a recipe carrying expired stock and warns on the card', () => {
+    const state = kitchenWithStock(
+      { spinach: 1, rice: 1 },
+      { expiresAt: { spinach: '2026-10-22' } },
+    );
+    const picks = recommend(
+      expiryCatalog,
+      state,
+      [expiryBook[0]!, expiryBook[1]!],
+      expiryNow,
+    );
+    expect(picks.map((pick) => pick.recipe.id)).toEqual(['rice-dish', 'spinach-dish']);
+    const pick = picks[1]!;
+    expect(pick.expiry).toMatchObject({
+      ingredientId: 'spinach',
+      expiresAt: '2026-10-22',
+      status: 'expired',
+      multiplier: EXPIRED_EXPIRY_PENALTY,
+    });
+    expect(pick.rank).toBeCloseTo(lengthMultiplier(1) * EXPIRED_EXPIRY_PENALTY);
+    expect(pick.explanation).toBe('Spinach is past its date.');
+  });
+
+  it('leaves undated and later stock at the unweighted rank', () => {
+    const undated = recommend(
+      expiryCatalog,
+      kitchenWithStock({ spinach: 1 }),
+      [expiryBook[0]!],
+      expiryNow,
+    )[0]!;
+    expect(undated.expiry).toEqual({
+      ingredientId: null,
+      expiresAt: null,
+      status: 'none',
+      multiplier: 1,
+    });
+    expect(undated.rank).toBeCloseTo(lengthMultiplier(1));
+
+    const laterState = kitchenWithStock(
+      { spinach: 1 },
+      { expiresAt: { spinach: '2026-11-30' } },
+    );
+    const later = recommend(expiryCatalog, laterState, [expiryBook[0]!], expiryNow)[0]!;
+    expect(later.expiry).toMatchObject({
+      ingredientId: 'spinach',
+      expiresAt: '2026-11-30',
+      status: 'later',
+      multiplier: 1,
+    });
+    expect(later.rank).toBeCloseTo(lengthMultiplier(1));
+  });
+
+  it('uses the earliest date and ignores an expiring ingredient the recipe cannot finish', () => {
+    const state = kitchenWithStock(
+      { spinach: 1, rice: 1 },
+      { expiresAt: { spinach: '2026-10-25', rice: '2026-10-24' } },
+    );
+    const signal = expiryWeightFor(
+      expiryBook[2]!,
+      stockTotals(state.stockLots),
+      state.stockLots,
+      expiryCatalog.stapleIds,
+      expiryNow,
+    );
+    expect(signal).toMatchObject({
+      ingredientId: 'rice',
+      expiresAt: '2026-10-24',
+      status: 'soon',
+    });
+
+    const short = recommend(expiryCatalog, state, [expiryBook[3]!], expiryNow)[0]!;
+    expect(short.expiry).toEqual({
+      ingredientId: null,
+      expiresAt: null,
+      status: 'none',
+      multiplier: 1,
+    });
+    expect(short.rank).toBeCloseTo(0.5 * lengthMultiplier(2));
+    expect(short.explanation).toBe('Just one ingredient short.');
+  });
+
+  it('falls back to a one-line fit explanation when no date drives the pick', () => {
+    const complete = recommend(
+      expiryCatalog,
+      kitchenWithStock({ spinach: 1 }),
+      [expiryBook[0]!],
+      expiryNow,
+    )[0]!;
+    expect(complete.explanation).toBe('You already have everything.');
+
+    const oneShort = recommend(
+      expiryCatalog,
+      kitchenWithStock({ spinach: 1, rice: 1 }),
+      [expiryBook[4]!],
+      expiryNow,
+    )[0]!;
+    expect(oneShort.explanation).toBe('Just one ingredient short.');
+
+    const twoShort = recommend(
+      expiryCatalog,
+      kitchenWithStock({ spinach: 1 }),
+      [expiryBook[4]!],
+      expiryNow,
+    )[0]!;
+    expect(twoShort.explanation).toBe('Closest match \u2014 2 short.');
   });
 });
 

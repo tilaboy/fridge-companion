@@ -1199,6 +1199,16 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 
 .rec-fit { margin: 0 0 4px; font-size: 13px; color: var(--ink-soft); }
 
+/* The one-line "why this card": freshness first, then the fit fallback. */
+.rec-why {
+  margin: 6px 0 5px;
+  font-family: var(--font-hand);
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--accent-deep);
+  overflow-wrap: anywhere;
+}
+
 .rec-meta { margin: 0 0 10px; font-size: 12px; color: var(--ink-soft); }
 
 .rec-dots { display: flex; gap: 5px; justify-content: center; }

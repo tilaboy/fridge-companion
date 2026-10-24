@@ -1630,18 +1630,27 @@ const baseCatalog = createCatalog(ingredients, recipes);
     var meta = details.length
       ? '<p class="rec-meta">' + details.join(' \u00b7 ') + '</p>'
       : '';
+    var explanation = pick.explanation
+      ? '<p class="rec-why">' + escapeHtml(pick.explanation) + '</p>'
+      : '';
+    var fitNote = pick.missing > 0
+      ? ' &middot; Missing: ' + pick.missing
+      : (pick.expiry && pick.expiry.status === 'expired'
+          ? ' &middot; check dates'
+          : ' &middot; all set');
 
     card.innerHTML =
       '<div class="rec-dish">' + pick.recipe.dishEmoji + '</div>' +
       '<h3 class="rec-name">' + escapeHtml(pick.recipe.name) + '</h3>' +
-      '<p class="rec-fit">You have ' + pick.have + '/' + pick.total +
-        (pick.missing > 0 ? ' &middot; Missing: ' + pick.missing : ' &middot; all set') + '</p>' +
+      '<p class="rec-fit">You have ' + pick.have + '/' + pick.total + fitNote + '</p>' +
+      explanation +
       meta +
       '<div class="rec-dots" aria-hidden="true">' + dots + '</div>';
     // Tapping a card brings it to center (spec > Components > Recipe card view).
     card.setAttribute('role', 'button');
     card.tabIndex = 0;
-    card.setAttribute('aria-label', 'Open ' + pick.recipe.name);
+    card.setAttribute('aria-label', 'Open ' + pick.recipe.name +
+      (pick.explanation ? '. ' + pick.explanation : ''));
     card.addEventListener('click', function () { openRecipe(pick); });
     card.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') {
