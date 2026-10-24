@@ -10,10 +10,13 @@
 import type { Catalog } from './catalog';
 import { getIngredient } from './catalog';
 import { roundAmount } from './amount';
+import { ALLERGENS, isAllergen, isDietClass } from './preferences';
 import { cloneState } from './state';
 import { dimensionOf, isUnit } from './units';
 import type {
+  Allergen,
   Category,
+  DietClass,
   Ingredient,
   IngredientId,
   KitchenState,
@@ -85,6 +88,12 @@ export interface CustomIngredientInput {
   categoryId: string;
   unit: string;
   densityGPerMl?: number | string | null;
+  /** `unknown` is the fail-closed default. */
+  dietClass?: string;
+  /** Only read when `allergensKnown` is true. */
+  allergens?: readonly string[];
+  /** False/absent means allergen info is unknown, not "none". */
+  allergensKnown?: boolean;
 }
 
 export type CustomIngredientResult =
@@ -133,6 +142,24 @@ export function addCustomIngredient(
     }
   }
 
+  let dietClass: DietClass = 'unknown';
+  if (input.dietClass !== undefined) {
+    if (!isDietClass(input.dietClass)) {
+      return { ok: false, error: 'Pick a valid diet classification.' };
+    }
+    dietClass = input.dietClass;
+  }
+
+  let allergens: Allergen[] | undefined;
+  if (input.allergensKnown) {
+    const chosen = new Set<Allergen>();
+    for (const value of input.allergens ?? []) {
+      if (!isAllergen(value)) return { ok: false, error: 'Pick allergens from the list.' };
+      chosen.add(value);
+    }
+    allergens = ALLERGENS.filter((allergen) => chosen.has(allergen));
+  }
+
   const taken = new Set(allIngredients.map((ingredient) => ingredient.id));
   const ingredient: Ingredient = {
     id: uniqueId('custom-ingredient-', name, taken),
@@ -140,8 +167,10 @@ export function addCustomIngredient(
     emoji: cleanEmoji(input.emoji, '🥫'),
     categoryId: category.id,
     unit,
+    dietClass,
   };
   if (density !== undefined) ingredient.densityGPerMl = density;
+  if (allergens !== undefined) ingredient.allergens = allergens;
 
   const next = cloneState(state);
   next.customIngredients = next.customIngredients.concat([ingredient]);
@@ -288,6 +317,20 @@ export function sanitizeCustomIngredients(
       categoryId,
       unit: record.unit,
     };
+    if (isDietClass(record.dietClass)) ingredient.dietClass = record.dietClass;
+    if (Array.isArray(record.allergens)) {
+      const chosen = new Set<Allergen>();
+      let valid = true;
+      for (const value of record.allergens) {
+        if (!isAllergen(value)) {
+          valid = false;
+          break;
+        }
+        chosen.add(value);
+      }
+      // A malformed list is unknown, not an accidental "contains none".
+      if (valid) ingredient.allergens = ALLERGENS.filter((allergen) => chosen.has(allergen));
+    }
     const parsedDensity = readDensity(density);
     if (parsedDensity !== undefined) ingredient.densityGPerMl = parsedDensity;
 

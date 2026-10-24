@@ -5,10 +5,12 @@
  * undo step without worrying about aliasing.
  */
 import { addLot } from './lots';
+import { clonePreferences, createPreferences } from './preferences';
 import type {
   Category,
   Ingredient,
   KitchenState,
+  Preferences,
   Recipe,
   ShoppingItem,
   StateSummary,
@@ -26,6 +28,8 @@ function cloneIngredient(ingredient: Ingredient): Ingredient {
   };
   if (ingredient.densityGPerMl !== undefined) copy.densityGPerMl = ingredient.densityGPerMl;
   if (ingredient.staple !== undefined) copy.staple = ingredient.staple;
+  if (ingredient.dietClass !== undefined) copy.dietClass = ingredient.dietClass;
+  if (ingredient.allergens !== undefined) copy.allergens = ingredient.allergens.slice();
   return copy;
 }
 
@@ -41,8 +45,9 @@ function cloneRecipe(recipe: Recipe): Recipe {
 
 export function createState(): KitchenState {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     categories: [],
+    preferences: createPreferences(),
     customIngredients: [],
     customRecipes: [],
     stockLots: [],
@@ -55,6 +60,7 @@ export function cloneState(state: KitchenState): KitchenState {
   return {
     schemaVersion: state.schemaVersion,
     categories: state.categories.map((category) => ({ id: category.id, name: category.name })),
+    preferences: clonePreferences(state.preferences ?? createPreferences()),
     customIngredients: (state.customIngredients ?? []).map(cloneIngredient),
     customRecipes: (state.customRecipes ?? []).map(cloneRecipe),
     stockLots: state.stockLots.map(
@@ -76,6 +82,15 @@ export function cloneState(state: KitchenState): KitchenState {
     // Defensive `?? {}`: hand-built or pre-override states still clone.
     stapleOverrides: Object.assign({}, state.stapleOverrides ?? {}),
   };
+}
+
+export function setPreferences(
+  state: KitchenState,
+  preferences: Preferences,
+): KitchenState {
+  const next = cloneState(state);
+  next.preferences = clonePreferences(preferences);
+  return next;
 }
 
 /** Re-adding an ingredient adds a batch: 2 eggs now + 3 eggs later = 5. */

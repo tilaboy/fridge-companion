@@ -7,7 +7,7 @@ import {
   sanitizeCustomIngredients,
   sanitizeCustomRecipes,
 } from '../../src/domain/custom';
-import { addToStock } from '../../src/domain/state';
+import { addToStock, setPreferences } from '../../src/domain/state';
 import { stockTotals } from '../../src/domain/lots';
 import { recommend } from '../../src/domain/recommend';
 import { exportJson, parseImportPayload } from '../../src/domain/transfer';
@@ -135,6 +135,65 @@ describe('addCustomIngredient', () => {
     if (!blank.ok) throw new Error(blank.error);
     expect(blank.ingredient.densityGPerMl).toBeUndefined();
   });
+
+  it('stores declared safety metadata, and defaults to unknown', () => {
+    const declared = addCustomIngredient(catalog, kitchen(), {
+      name: 'Shrimp',
+      categoryId: 'produce',
+      unit: 'g',
+      dietClass: 'fish',
+      allergensKnown: true,
+      allergens: ['shellfish', 'fish', 'shellfish'],
+    });
+    if (!declared.ok) throw new Error(declared.error);
+    expect(declared.ingredient.dietClass).toBe('fish');
+    expect(declared.ingredient.allergens).toEqual(['fish', 'shellfish']);
+
+    const none = addCustomIngredient(catalog, kitchen(), {
+      name: 'Tofu',
+      categoryId: 'produce',
+      unit: 'g',
+      dietClass: 'plant',
+      allergensKnown: true,
+      allergens: [],
+    });
+    if (!none.ok) throw new Error(none.error);
+    expect(none.ingredient.allergens).toEqual([]);
+
+    const unknown = addedIngredient(kitchen(), 'Mystery');
+    expect(unknown.ingredient.dietClass).toBe('unknown');
+    expect(unknown.ingredient.allergens).toBeUndefined();
+
+    const ignored = addCustomIngredient(catalog, kitchen(), {
+      name: 'Ignored List',
+      categoryId: 'produce',
+      unit: 'g',
+      dietClass: 'plant',
+      allergensKnown: false,
+      allergens: ['soy'],
+    });
+    if (!ignored.ok) throw new Error(ignored.error);
+    expect(ignored.ingredient.allergens).toBeUndefined();
+  });
+
+  it('rejects an unknown diet class or an invalid allergen', () => {
+    const diet = addCustomIngredient(catalog, kitchen(), {
+      name: 'Okra', categoryId: 'produce', unit: 'pcs', dietClass: 'keto',
+    });
+    expect(diet.ok).toBe(false);
+    if (!diet.ok) expect(diet.error).toContain('diet');
+
+    const allergen = addCustomIngredient(catalog, kitchen(), {
+      name: 'Okra',
+      categoryId: 'produce',
+      unit: 'pcs',
+      dietClass: 'plant',
+      allergensKnown: true,
+      allergens: ['gluten', 'ghost'],
+    });
+    expect(allergen.ok).toBe(false);
+    if (!allergen.ok) expect(allergen.error).toContain('allergen');
+  });
 });
 
 describe('sanitizeCustomIngredients', () => {
@@ -180,6 +239,59 @@ describe('sanitizeCustomIngredients', () => {
       emoji: '🥫',
     });
   });
+
+  it('repairs valid safety metadata and fails closed on malformed metadata', () => {
+    const clean = sanitizeCustomIngredients(
+      catalog,
+      [
+        {
+          name: 'Shrimp',
+          categoryId: 'produce',
+          unit: 'g',
+          dietClass: 'fish',
+          allergens: ['shellfish', 'shellfish'],
+        },
+        {
+          name: 'Tofu',
+          categoryId: 'produce',
+          unit: 'g',
+          dietClass: 'plant',
+          allergens: [],
+        },
+        {
+          name: 'Legacy',
+          categoryId: 'produce',
+          unit: 'pcs',
+        },
+        {
+          name: 'Bad Allergens',
+          categoryId: 'produce',
+          unit: 'g',
+          dietClass: 'plant',
+          allergens: ['soy', 'not-real'],
+        },
+        {
+          name: 'Bad Diet',
+          categoryId: 'produce',
+          unit: 'g',
+          dietClass: 'alien',
+          allergens: ['soy'],
+        },
+      ],
+      categories,
+    );
+    expect(clean.map((ingredient) => ingredient.name)).toEqual([
+      'Shrimp', 'Tofu', 'Legacy', 'Bad Allergens', 'Bad Diet',
+    ]);
+    expect(clean[0]).toMatchObject({ dietClass: 'fish', allergens: ['shellfish'] });
+    expect(clean[1]).toMatchObject({ dietClass: 'plant', allergens: [] });
+    expect(clean[2]!.dietClass).toBeUndefined();
+    expect(clean[2]!.allergens).toBeUndefined();
+    expect(clean[3]!.dietClass).toBe('plant');
+    expect(clean[3]!.allergens).toBeUndefined();
+    expect(clean[4]!.dietClass).toBeUndefined();
+    expect(clean[4]!.allergens).toEqual(['soy']);
+  });
 });
 
 describe('storing custom ingredients', () => {
@@ -193,6 +305,26 @@ describe('storing custom ingredients', () => {
     expect(result.state.customIngredients).toEqual([added.ingredient]);
     expect(stockTotals(result.state.stockLots)[added.ingredient.id]).toBe(250);
     expect(result.state.shoppingList[0]!.ingredientId).toBe(added.ingredient.id);
+  });
+
+  it('round-trips declared safety metadata', () => {
+    const added = addCustomIngredient(catalog, kitchen(), {
+      name: 'Shrimp',
+      categoryId: 'produce',
+      unit: 'g',
+      dietClass: 'fish',
+      allergensKnown: true,
+      allergens: ['shellfish'],
+    });
+    if (!added.ok) throw new Error(added.error);
+
+    const result = parseImportPayload(catalog, exportJson(added.state));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.state.customIngredients[0]).toMatchObject({
+      name: 'Shrimp',
+      dietClass: 'fish',
+      allergens: ['shellfish'],
+    });
   });
 });
 
@@ -321,5 +453,54 @@ describe('a merged catalog uses custom recipes', () => {
     const stocked = addToStock(recipe.state, added.ingredient.id, 2);
     const picks = recommend(merged, stocked);
     expect(picks.map((pick) => pick.recipe.id)).toContain('custom-recipe-okra-solo');
+  });
+
+  it('filters custom recipes by their custom ingredient metadata', () => {
+    const added = addCustomIngredient(catalog, kitchen(), {
+      name: 'Shrimp',
+      categoryId: 'produce',
+      unit: 'g',
+      dietClass: 'fish',
+      allergensKnown: true,
+      allergens: ['shellfish'],
+    });
+    if (!added.ok) throw new Error(added.error);
+
+    const recipe = addCustomRecipe(catalog, added.state, {
+      name: 'Shrimp Bowl',
+      ingredients: [{ ingredientId: added.ingredient.id, amount: 2 }],
+      steps: ['Cook.'],
+    });
+    if (!recipe.ok) throw new Error(recipe.error);
+
+    const merged = createCatalog(
+      tray.concat(recipe.state.customIngredients),
+      [builtInRecipe].concat(recipe.state.customRecipes),
+    );
+    const stocked = addToStock(recipe.state, added.ingredient.id, 2);
+    const shellfishFree = setPreferences(stocked, { diet: null, allergens: ['shellfish'] });
+    expect(recommend(merged, shellfishFree).map((pick) => pick.recipe.id))
+      .not.toContain('custom-recipe-shrimp-bowl');
+    expect(recommend(merged, stocked).map((pick) => pick.recipe.id))
+      .toContain('custom-recipe-shrimp-bowl');
+  });
+
+  it('hides legacy custom ingredients with unknown safety metadata under a filter', () => {
+    const added = addedIngredient(kitchen(), 'Okra');
+    const recipe = addCustomRecipe(catalog, added.state, {
+      name: 'Okra Solo',
+      ingredients: [{ ingredientId: added.ingredient.id, amount: 2 }],
+      steps: ['Cook.'],
+    });
+    if (!recipe.ok) throw new Error(recipe.error);
+
+    const merged = createCatalog(
+      tray.concat(recipe.state.customIngredients),
+      [builtInRecipe].concat(recipe.state.customRecipes),
+    );
+    const stocked = addToStock(recipe.state, added.ingredient.id, 2);
+    const vegan = setPreferences(stocked, { diet: 'vegan', allergens: [] });
+    expect(recommend(merged, vegan).map((pick) => pick.recipe.id))
+      .not.toContain('custom-recipe-okra-solo');
   });
 });

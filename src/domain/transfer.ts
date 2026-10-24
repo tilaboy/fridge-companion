@@ -13,6 +13,7 @@ import { isValidAmount } from './amount';
 import { confirmCategories, ensureCategories } from './categories';
 import { sanitizeCustomIngredients, sanitizeCustomRecipes } from './custom';
 import { normalizeExpiry } from './lots';
+import { sanitizePreferences } from './preferences';
 import { effectiveStapleIds } from './staples';
 import { cloneState, createState, isEmptyKitchen, summarizeState } from './state';
 import type {
@@ -26,7 +27,7 @@ import type {
 } from './types';
 
 export const APP_ID = 'fridge-companion';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -157,6 +158,7 @@ export function sanitizeState(
   // Read staple choices before stock: a built-in staple the user unmarked
   // must keep its lots, while one they marked must lose them.
   fresh.stapleOverrides = sanitizeStapleOverrides(catalog, record.stapleOverrides, knownOnly);
+  fresh.preferences = sanitizePreferences(record.preferences);
 
   // Custom definitions come before stock and recipes: lots, shopping refs,
   // and recipe ingredients all resolve against the merged tray.
@@ -230,6 +232,7 @@ function looksLikeKitchen(value: unknown): boolean {
   if (!record) return false;
   return (
     Array.isArray(record.categories) ||
+    !!asRecord(record.preferences) ||
     Array.isArray(record.customIngredients) ||
     Array.isArray(record.customRecipes) ||
     Array.isArray(record.stockLots) ||

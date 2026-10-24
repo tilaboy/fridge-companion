@@ -8,6 +8,7 @@ export * from './units';
 export * from './lots';
 export * from './history';
 export * from './staples';
+export * from './preferences';
 export * from './custom';
 export * from './state';
 export * from './categories';

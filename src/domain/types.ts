@@ -13,6 +13,29 @@ export type CategoryId = string;
  * count units; kg/l are accepted at the edge and stored as their base. */
 export type Unit = 'g' | 'kg' | 'ml' | 'l' | 'pcs' | 'cloves' | 'slices' | 'bunch';
 
+/** The common allergens this app can filter on. */
+export type Allergen =
+  | 'dairy'
+  | 'egg'
+  | 'fish'
+  | 'shellfish'
+  | 'soy'
+  | 'gluten'
+  | 'peanut'
+  | 'tree-nut'
+  | 'sesame';
+
+/** Diets are hard constraints, not ranking preferences. */
+export type Diet = 'vegetarian' | 'vegan' | 'pescatarian';
+
+/**
+ * One coarse food class per ingredient. It is enough to decide the supported
+ * diets without pretending to be a nutrition database. `unknown` is a
+ * deliberate fail-closed value: recipes using it are hidden while a diet
+ * filter is active.
+ */
+export type DietClass = 'plant' | 'dairy' | 'egg' | 'honey' | 'fish' | 'meat' | 'unknown';
+
 /** A built-in tray ingredient. Staples are assumed always on hand. */
 export interface Ingredient {
   id: IngredientId;
@@ -24,6 +47,18 @@ export interface Ingredient {
   /** Grams per millilitre, when mass and volume are interchangeable. */
   densityGPerMl?: number;
   staple?: boolean;
+  /**
+   * Diet class. Absent or `unknown` means the app must not guess; recipes
+   * using this ingredient are hidden while a diet filter is active.
+   */
+  dietClass?: DietClass;
+  /**
+   * Known allergens. `undefined` means unknown (hidden while any allergen
+   * filter is active); an empty array means "none of the listed allergens".
+   * Dairy/egg/fish are also derived from `dietClass`, so a missing checkbox
+   * cannot make a known animal ingredient look safe.
+   */
+  allergens?: Allergen[];
 }
 
 export interface RecipeIngredient {
@@ -70,10 +105,19 @@ export interface StockLot {
 
 export type ExpiryStatus = 'none' | 'later' | 'soon' | 'expired';
 
+export interface Preferences {
+  /** One hard diet constraint; null means no diet filter. */
+  diet: Diet | null;
+  /** Every selected allergen is a hard exclusion. */
+  allergens: Allergen[];
+}
+
 export interface KitchenState {
   /** The payload version. v1 carried a bare `stock` map instead of lots. */
   schemaVersion: number;
   categories: Category[];
+  /** Hard food-safety and diet filters chosen by this kitchen. */
+  preferences: Preferences;
   /** Tray ingredients the kitchen added itself. Sanitized and de-duplicated. */
   customIngredients: Ingredient[];
   /** Recipes the kitchen added itself. References resolve against the tray. */

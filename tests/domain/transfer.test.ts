@@ -18,6 +18,7 @@ import { kitchenWithStock } from '../stock';
 function sampleKitchen(): KitchenState {
   const state = kitchenWithStock({ tomato: 2, egg: 6 });
   state.categories = [{ id: 'produce', name: 'Produce' }];
+  state.preferences = { diet: 'vegan', allergens: ['gluten', 'soy'] };
   state.shoppingList = [{ ingredientId: 'onion', amount: 1, fromRecipeId: null }];
   return state;
 }
@@ -43,13 +44,15 @@ describe('buildExport', () => {
     const envelope = buildExport(state);
     envelope.state.stockLots[0]!.amount = 99;
     envelope.state.categories[0]!.name = 'Changed';
+    envelope.state.preferences.allergens.push('sesame');
     expect(state.stockLots[0]!.amount).toBe(2);
     expect(state.categories[0]!.name).toBe('Produce');
+    expect(state.preferences.allergens).toEqual(['gluten', 'soy']);
   });
 });
 
 describe('exportJson', () => {
-  it('is valid JSON with a trailing newline and v3 lots', () => {
+  it('is valid JSON with a trailing newline and v4 lots', () => {
     const text = exportJson(sampleKitchen(), NOW);
     expect(text.endsWith('\n')).toBe(true);
     const state = JSON.parse(text).state;
@@ -59,16 +62,18 @@ describe('exportJson', () => {
 });
 
 describe('parseImportPayload', () => {
-  it('round-trips an export, expiry included', () => {
+  it('round-trips an export, expiry and preferences included', () => {
     const state = kitchenWithStock({ tomato: 2, egg: 6 }, {
       expiresAt: { tomato: '2026-10-30' },
     });
+    state.preferences = { diet: 'vegan', allergens: ['soy', 'gluten'] };
     const result = parseImportPayload(catalog, exportJson(state, NOW));
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
     expect(result.state).toEqual(state);
     expect(result.legacy).toBe(false);
     expect(result.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(result.state.preferences).toEqual(state.preferences);
     expect(result.state.stockLots.find((lot) => lot.ingredientId === 'tomato')?.expiresAt)
       .toBe('2026-10-30');
   });
@@ -233,6 +238,26 @@ describe('sanitizeState', () => {
     const raw = { stockLots: [{ ingredientId: 'ghost', amount: 2 }] };
     expect(stockTotals(sanitizeState(catalog, raw).stockLots)).toEqual({ ghost: 2 });
     expect(sanitizeState(catalog, raw, { knownOnly: true }).stockLots).toEqual([]);
+  });
+
+  it('keeps valid food preferences and drops invalid ones', () => {
+    const clean = sanitizeState(catalog, {
+      preferences: { diet: 'vegan', allergens: ['soy', 'ghost', 'soy', 'gluten'] },
+    });
+    expect(clean.preferences).toEqual({ diet: 'vegan', allergens: ['soy', 'gluten'] });
+
+    const repaired = sanitizeState(catalog, {
+      preferences: { diet: 'keto', allergens: 'soy' },
+    });
+    expect(repaired.preferences).toEqual({ diet: null, allergens: [] });
+  });
+
+  it('loads a schema 3 kitchen with food filters off', () => {
+    const clean = sanitizeState(catalog, {
+      schemaVersion: 3,
+      stockLots: [{ ingredientId: 'tomato', amount: 1 }],
+    });
+    expect(clean.preferences).toEqual({ diet: null, allergens: [] });
   });
 
   it('never throws on hostile shapes', () => {

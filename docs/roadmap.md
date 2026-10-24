@@ -125,7 +125,7 @@ Missing:
 | Area | Carry over | Replace / add |
 | --- | --- | --- |
 | Kernel | score = have ÷ need, amount-level check, staples exclusion, top-N | hard filters, expiry weighting, explanations, history |
-| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v3, stock lots, custom items, settings, migration |
+| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v4, stock lots, custom items, hard preferences, migration |
 | Store | `loadState` / `saveState` seam | storage adapter interface + optional remote adapter |
 | UI | fridge-door metaphor, bubbles, pointer drag, reduced motion | focus management, keyboard path, dark mode, empty/error states |
 | Data | `data/ingredients.js`, `data/recipes.js` shape | richer schema, tags/allergens/time/servings, provenance |
@@ -160,7 +160,7 @@ record, and **accounts/sync deferred to v1.1** (household sharing ships as a
 kitchen file first). Size was never the reason to leave `localStorage`; silent
 eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md).
 
-## 7. Proposed data model (v2)
+## 7. Data model (current v4, with proposed additions)
 
 ```js
 // Ingredient — built-in or user-created
@@ -169,8 +169,9 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
   defaultUnit: 'g',
   dimension: 'mass' | 'volume' | 'count',
   densityGPerMl: 1.0,        // optional; enables mass <-> volume
+  dietClass: 'plant' | 'dairy' | 'egg' | 'honey' | 'fish' | 'meat' | 'unknown',
   allergens: [],             // 'dairy' | 'gluten' | 'egg' | 'shellfish' | ...
-  dietFlags: [],             // 'vegetarian' | 'vegan' | ...
+                             // undefined = unknown; [] = known none
   aliases: []
 }
 
@@ -180,7 +181,7 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 // Recipe
 {
   id, name, dishEmoji, servings, timeMinutes,
-  tags: [], dietFlags: [], allergens: [],
+  tags: [], dietFlags: [], allergens: [],   // current safety is derived from ingredients
   ingredients: [{ ingredientId, amount, unit, optional }],
   steps: [],
   source: 'original' | 'public-domain' | '<license + url>'
@@ -194,14 +195,15 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 // Persisted state
 {
-  schemaVersion: 3,
+  schemaVersion: 4,
   categories,
+  preferences: { diet, allergens },   // hard filters, never ranking penalties
   customIngredients,
   customRecipes,
   stockLots,
   shoppingList,
   cookHistory,
-  settings: { unitSystem, staples, diet, allergens, dislikes }
+  settings: { unitSystem, staples, dislikes }
 }
 ```
 
@@ -286,6 +288,20 @@ via export/import, and see a warning when a write fails.
 > vanished from the tray on undo; a custom recipe with a custom ingredient was
 > recommended, cooked down its lots, refused a duplicate name, and survived
 > reload.
+>
+> Schema 4 adds hard food preferences. A recipe is allowed only when every
+> ingredient passes; a conflicting recipe is filtered before scoring, never
+> demoted. Built-in ingredients carry a diet class and conservative allergen
+> tags, dairy/egg/fish are also derived from the diet class, and an ingredient
+> with missing metadata fails closed while the relevant filter is active.
+> Custom ingredients now declare a diet class and, optionally, their allergens;
+> an unchecked "Allergen info known" box stays unknown rather than silently
+> meaning "none". The door has a "Food preferences" panel, recommendations
+> name the active filters, and the filtered empty state says why. Verified in
+> Chrome: a shellfish-tagged custom recipe disappears under the shellfish
+> filter, undo restores it, the filter survives reload, clearing restores the
+> recipe, vegan hides a fish recipe, and unknown diet/allergen metadata stays
+> hidden until declared.
 
 - [x] Decimal/fraction amounts; conversion within a dimension; cross-dimension
       conversion when density is known.
@@ -293,14 +309,20 @@ via export/import, and see a warning when a write fails.
 - [x] Custom ingredients and recipes with validation and de-duplication.
 - [x] Configurable staples per user.
 - [x] Undo for cook and restock; confirmation for destructive actions.
-- [x] Idempotent v1 → v3 migration covered by tests.
+- [x] Idempotent v1 → v4 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is
 visible, and undo restores the exact prior state.
 
 ### M2 — Picks worth trusting (2–4 weeks)
 
-- [ ] Diet and allergen filters are hard constraints; never violated.
+> Safety slice landed: schema 4, built-in and custom ingredient safety metadata,
+> a Food preferences panel, and hard diet/allergen filtering before ranking.
+> Unknown metadata fails closed. The remaining M2 work is time/meal metadata
+> and filters, expiry-weighted ranking, one-line card explanations, servings,
+> repetition avoidance, and recipe provenance.
+
+- [x] Diet and allergen filters are hard constraints; never violated.
 - [ ] Time budget and meal type filters.
 - [ ] Expiry-weighted ranking; each card states why it ranked.
 - [ ] Servings scaling adjusts amounts and deductions.

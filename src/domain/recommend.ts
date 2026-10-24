@@ -7,6 +7,7 @@
  */
 import type { Catalog } from './catalog';
 import { stockTotals, totalAmount } from './lots';
+import { createPreferences, filterRecipesByPreferences } from './preferences';
 import { effectiveStapleIds, isStapleFor } from './staples';
 import type { IngredientId, KitchenState, Recipe, ScoredRecipe, Stock } from './types';
 
@@ -45,8 +46,10 @@ export function lengthMultiplier(total: number): number {
 }
 
 /**
- * Only recipes with at least one ingredient in hand are candidates; the top
- * three come back, tie-broken by fewest missing, then by id for stability.
+ * Hard diet/allergen filters run first, so a conflicting recipe is never
+ * scored or shown. Then only recipes with at least one ingredient in hand are
+ * candidates; the top three come back, tie-broken by fewest missing, then by
+ * id for stability.
  */
 export function recommend(
   catalog: Catalog,
@@ -55,7 +58,8 @@ export function recommend(
 ): ScoredRecipe[] {
   const totals = stockTotals(state.stockLots);
   const staples = effectiveStapleIds(catalog, state);
-  return recipeList
+  const preferences = state.preferences ?? createPreferences();
+  return filterRecipesByPreferences(catalog, recipeList, preferences)
     .map((recipe) => {
       const scored = scoreRecipe(catalog, recipe, totals, staples);
       scored.rank = scored.score * lengthMultiplier(scored.total);

@@ -104,6 +104,24 @@
           <ul id="staple-list" class="seed-list staple-list"></ul>
         </details>
 
+        <details id="preferences-panel" class="categories-panel">
+          <summary class="categories-summary">Food preferences</summary>
+          <p class="data-note">
+            These are hard filters: recipes that conflict with your diet or
+            allergens are hidden, never ranked lower. Always check labels.
+          </p>
+          <label class="custom-label" for="preference-diet">Diet</label>
+          <select id="preference-diet" class="preference-select" aria-label="Diet filter"></select>
+          <fieldset class="allergen-fieldset">
+            <legend class="custom-label">Avoid allergens</legend>
+            <div id="allergen-options" class="allergen-options"></div>
+          </fieldset>
+          <div class="data-actions">
+            <button id="clear-preferences" type="button" class="btn btn-small">Clear filters</button>
+          </div>
+          <p id="preferences-status" class="data-status" role="status" aria-live="polite"></p>
+        </details>
+
         <details id="custom-ingredient-panel" class="categories-panel">
           <summary class="categories-summary">Add your own ingredient</summary>
           <form id="custom-ingredient-form" class="custom-form" autocomplete="off">
@@ -124,6 +142,20 @@
             </div>
             <input id="custom-ingredient-density" class="custom-density" type="text" inputmode="decimal" placeholder="Density g/ml (optional)" aria-label="Density, grams per millilitre (optional)">
             <p class="custom-hint">Density lets you type ml for a gram ingredient, and the reverse.</p>
+            <label class="custom-label" for="custom-ingredient-diet">Diet class</label>
+            <select id="custom-ingredient-diet" aria-label="Diet class"></select>
+            <fieldset class="allergen-fieldset">
+              <legend class="custom-label">Allergens</legend>
+              <div id="custom-allergen-options" class="allergen-options"></div>
+            </fieldset>
+            <label class="custom-check">
+              <input id="custom-ingredient-allergens-known" type="checkbox">
+              <span>Allergen info known</span>
+            </label>
+            <p class="custom-hint">
+              Leave unchecked if you are unsure. Recipes using an ingredient with
+              unknown diet or allergen info are hidden while filters are on.
+            </p>
             <button type="submit" class="btn btn-primary btn-small">Add ingredient</button>
             <p id="custom-ingredient-error" class="category-error hidden" role="alert"></p>
             <p id="custom-ingredient-status" class="data-status" role="status" aria-live="polite"></p>
@@ -189,6 +221,7 @@
         <h2 id="rec-title" class="rec-title">Tonight&rsquo;s picks</h2>
         <button id="rec-close" type="button" class="btn btn-small" aria-label="Close recommendations">&times;</button>
       </div>
+      <p id="rec-filter-note" class="rec-filter-note hidden"></p>
       <div id="rec-cards" class="rec-cards"></div>
       <p id="rec-empty" class="rec-empty hidden"></p>
     </div>

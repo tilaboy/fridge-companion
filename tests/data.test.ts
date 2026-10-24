@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { SEEDED_CATEGORIES } from '../src/domain/categories';
+import {
+  ingredientAllergens,
+  isAllergen,
+  isDietClass,
+  recipeFitsPreferences,
+} from '../src/domain/preferences';
 import { isUnit } from '../src/domain/units';
-import { ingredients, recipes } from './fixtures';
+import type { Preferences } from '../src/domain/types';
+import { catalog, ingredients, recipes } from './fixtures';
 
 describe('built-in tray', () => {
   it('has unique ids and a known category for every ingredient', () => {
@@ -36,6 +43,31 @@ describe('built-in tray', () => {
       expect(used.has(ingredient.id), ingredient.id).toBe(true);
     }
   });
+
+  it('gives every built-in ingredient known, valid safety metadata', () => {
+    for (const ingredient of ingredients) {
+      expect(isDietClass(ingredient.dietClass), ingredient.id).toBe(true);
+      expect(ingredient.dietClass, ingredient.id).not.toBe('unknown');
+      expect(Array.isArray(ingredient.allergens), ingredient.id).toBe(true);
+      for (const allergen of ingredient.allergens ?? []) {
+        expect(isAllergen(allergen), `${ingredient.id} -> ${allergen}`).toBe(true);
+      }
+    }
+  });
+
+  it('derives animal allergens even if an ingredient tag is missed', () => {
+    const expected: Record<string, string> = {
+      dairy: 'dairy',
+      egg: 'egg',
+      fish: 'fish',
+    };
+    for (const ingredient of ingredients) {
+      const derived = expected[ingredient.dietClass ?? ''];
+      if (derived) {
+        expect(ingredientAllergens(ingredient), ingredient.id).toContain(derived);
+      }
+    }
+  });
 });
 
 describe('built-in recipes', () => {
@@ -68,5 +100,19 @@ describe('built-in recipes', () => {
       r.ingredients.some((ri) => meatIds.has(ri.ingredientId)),
     );
     expect(meatRecipes.length).toBeGreaterThanOrEqual(9);
+  });
+
+  it('applies real ingredient tags to real recipes', () => {
+    const fits = (id: string, preferences: Preferences) => {
+      const recipe = catalog.recipeById.get(id);
+      if (!recipe) throw new Error('missing recipe ' + id);
+      return recipeFitsPreferences(catalog, recipe, preferences);
+    };
+    expect(fits('garlic_bread', { diet: null, allergens: ['dairy'] })).toBe(false);
+    expect(fits('scrambled_eggs', { diet: null, allergens: ['egg'] })).toBe(false);
+    expect(fits('tomato_pasta', { diet: null, allergens: ['gluten'] })).toBe(false);
+    expect(fits('salmon_spinach', { diet: null, allergens: ['fish'] })).toBe(false);
+    expect(fits('chicken_stir_fry', { diet: 'vegan', allergens: [] })).toBe(false);
+    expect(fits('tomato_veggie_rice', { diet: 'vegan', allergens: [] })).toBe(true);
   });
 });

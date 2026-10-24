@@ -6,6 +6,12 @@
  * so nothing reaches for browser globals.
  */
 import {
+  ALLERGENS,
+  ALLERGEN_LABELS,
+  DIETS,
+  DIET_CLASSES,
+  DIET_CLASS_LABELS,
+  DIET_LABELS,
   SEEDED_CATEGORIES,
   acceptedUnits,
   addCustomIngredient,
@@ -19,6 +25,7 @@ import {
   cookDeductions,
   cookRecipe,
   createState,
+  describePreferences,
   ensureCategories,
   exportJson,
   formatAmount,
@@ -27,9 +34,11 @@ import {
   groupTrayByCategory,
   expiryLabel,
   expiryStatus,
+  hasActivePreferences,
   isEmptyKitchen,
   isValidAmount,
   isStapleFor,
+  setPreferences,
   setStaple,
   soonestExpiry,
   missingIngredients,
@@ -89,12 +98,19 @@ const baseCatalog = createCatalog(ingredients, recipes);
   function init() {
     els.seedList = document.getElementById('seed-list');
     els.stapleList = document.getElementById('staple-list');
+    els.preferenceDiet = document.getElementById('preference-diet');
+    els.allergenOptions = document.getElementById('allergen-options');
+    els.clearPreferences = document.getElementById('clear-preferences');
+    els.preferencesStatus = document.getElementById('preferences-status');
     els.customIngredientForm = document.getElementById('custom-ingredient-form');
     els.customName = document.getElementById('custom-ingredient-name');
     els.customEmoji = document.getElementById('custom-ingredient-emoji');
     els.customCategory = document.getElementById('custom-ingredient-category');
     els.customUnit = document.getElementById('custom-ingredient-unit');
     els.customDensity = document.getElementById('custom-ingredient-density');
+    els.customDiet = document.getElementById('custom-ingredient-diet');
+    els.customAllergensKnown = document.getElementById('custom-ingredient-allergens-known');
+    els.customAllergenOptions = document.getElementById('custom-allergen-options');
     els.customError = document.getElementById('custom-ingredient-error');
     els.customStatus = document.getElementById('custom-ingredient-status');
     els.customRecipeForm = document.getElementById('custom-recipe-form');
@@ -127,6 +143,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.recSection = document.getElementById('recommendations');
     els.recCards = document.getElementById('rec-cards');
     els.recEmpty = document.getElementById('rec-empty');
+    els.recFilterNote = document.getElementById('rec-filter-note');
     els.recClose = document.getElementById('rec-close');
     els.prompt = document.getElementById('amount-prompt');
     els.promptForm = document.getElementById('amount-form');
@@ -172,12 +189,22 @@ const baseCatalog = createCatalog(ingredients, recipes);
     rebuildCatalog();
     persist(state);
 
+    buildDietOptions(els.preferenceDiet, 'No diet filter');
+    buildDietClassOptions(els.customDiet);
+    buildAllergenOptions(els.allergenOptions, 'preference-allergen', 'allergen');
+    buildAllergenOptions(els.customAllergenOptions, 'custom-allergen', 'custom-allergen');
+    els.preferenceDiet.addEventListener('change', onPreferencesChange);
+    els.allergenOptions.addEventListener('change', onPreferencesChange);
+    els.clearPreferences.addEventListener('click', onClearPreferences);
+    els.customAllergensKnown.addEventListener('change', syncCustomAllergenFields);
+
     renderSeedList();
     renderStapleList();
-    refreshCustomPanels();
+    refreshDoorPanels();
     els.customIngredientForm.addEventListener('submit', onAddCustomIngredient);
     els.customUnit.addEventListener('change', syncDensityField);
     syncDensityField();
+    syncCustomAllergenFields();
     els.customRecipeForm.addEventListener('submit', onSaveCustomRecipe);
     els.customRecipeIngredient.addEventListener('change', syncRecipeUnitOptions);
     els.customRecipeAddRow.addEventListener('click', onAddRecipeRow);
@@ -339,7 +366,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     closeRecommendations();
     renderSeedList();
     renderStapleList();
-    refreshCustomPanels();
+    refreshDoorPanels();
     renderAll();
     els.dataStatus.textContent = 'Imported ' + detail + '.';
     announce('Kitchen imported: ' + detail + '.');
@@ -362,7 +389,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     closeRecommendations();
     renderSeedList();
     renderStapleList();
-    refreshCustomPanels();
+    refreshDoorPanels();
     renderAll();
     els.dataStatus.textContent = 'Kitchen cleared. Start fresh by opening a bubble.';
     announce('Kitchen cleared.');
@@ -397,7 +424,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     closeRecommendations();
     renderSeedList(); // the categories disclosure is not part of renderAll
     renderStapleList();
-    refreshCustomPanels();
+    refreshDoorPanels();
     renderAll();
     announce('The kitchen changed in another tab.');
   }
@@ -485,10 +512,118 @@ const baseCatalog = createCatalog(ingredients, recipes);
     });
   }
 
-  function refreshCustomPanels() {
+  function refreshDoorPanels() {
+    renderPreferencesForm();
     renderCustomIngredientForm();
     renderCustomRecipeForm();
     renderCustomRecipeList();
+  }
+
+  function buildDietOptions(select, noneLabel) {
+    select.innerHTML = '';
+    var none = document.createElement('option');
+    none.value = '';
+    none.textContent = noneLabel;
+    select.appendChild(none);
+    DIETS.forEach(function (diet) {
+      var option = document.createElement('option');
+      option.value = diet;
+      option.textContent = DIET_LABELS[diet];
+      select.appendChild(option);
+    });
+  }
+
+  function buildDietClassOptions(select) {
+    select.innerHTML = '';
+    DIET_CLASSES.forEach(function (dietClass) {
+      var option = document.createElement('option');
+      option.value = dietClass;
+      option.textContent = dietClass === 'unknown'
+        ? 'Not sure (hidden under diet filters)'
+        : DIET_CLASS_LABELS[dietClass];
+      select.appendChild(option);
+    });
+    select.value = 'unknown';
+  }
+
+  function buildAllergenOptions(container, idPrefix, dataAttribute) {
+    container.innerHTML = '';
+    ALLERGENS.forEach(function (allergen) {
+      var label = document.createElement('label');
+      label.className = 'allergen-option';
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.id = idPrefix + '-' + allergen;
+      input.setAttribute('data-' + dataAttribute, allergen);
+      var text = document.createElement('span');
+      text.textContent = ALLERGEN_LABELS[allergen];
+      label.appendChild(input);
+      label.appendChild(text);
+      container.appendChild(label);
+    });
+  }
+
+  function selectedAllergens(container, dataAttribute) {
+    var chosen = [];
+    container.querySelectorAll('input[data-' + dataAttribute + ']').forEach(function (input) {
+      if (input.checked) chosen.push(input.getAttribute('data-' + dataAttribute));
+    });
+    return chosen;
+  }
+
+  function renderPreferencesForm() {
+    els.preferenceDiet.value = state.preferences.diet || '';
+    var chosen = {};
+    state.preferences.allergens.forEach(function (allergen) { chosen[allergen] = true; });
+    els.allergenOptions.querySelectorAll('input[data-allergen]').forEach(function (input) {
+      input.checked = !!chosen[input.getAttribute('data-allergen')];
+    });
+    els.preferencesStatus.textContent = describePreferences(state.preferences);
+  }
+
+  function readPreferences() {
+    return {
+      diet: els.preferenceDiet.value || null,
+      allergens: selectedAllergens(els.allergenOptions, 'allergen')
+    };
+  }
+
+  function preferencesEqual(a, b) {
+    if (a.diet !== b.diet || a.allergens.length !== b.allergens.length) return false;
+    for (var i = 0; i < a.allergens.length; i++) {
+      if (a.allergens[i] !== b.allergens[i]) return false;
+    }
+    return true;
+  }
+
+  function applyPreferences(next, message) {
+    remember('preferences', message, state);
+    state = setPreferences(state, next);
+    persist(state);
+    closeRecipeView();
+    if (!els.recSection.classList.contains('hidden')) renderRecommendations();
+    els.preferencesStatus.textContent = describePreferences(state.preferences);
+    announce('Food preferences: ' + describePreferences(state.preferences) + '.');
+  }
+
+  function onPreferencesChange() {
+    var next = readPreferences();
+    if (preferencesEqual(next, state.preferences)) return;
+    applyPreferences(next, 'Updated food preferences.');
+  }
+
+  function onClearPreferences() {
+    if (!hasActivePreferences(state.preferences)) return;
+    applyPreferences({ diet: null, allergens: [] }, 'Cleared food filters.');
+    renderPreferencesForm();
+  }
+
+  function syncCustomAllergenFields() {
+    var known = els.customAllergensKnown.checked;
+    els.customAllergenOptions.querySelectorAll('input').forEach(function (input) {
+      input.disabled = !known;
+      if (!known) input.checked = false;
+    });
   }
 
   function renderCustomRecipeForm() {
@@ -705,7 +840,10 @@ const baseCatalog = createCatalog(ingredients, recipes);
       emoji: els.customEmoji.value,
       categoryId: els.customCategory.value,
       unit: els.customUnit.value,
-      densityGPerMl: els.customDensity.value
+      densityGPerMl: els.customDensity.value,
+      dietClass: els.customDiet.value,
+      allergensKnown: els.customAllergensKnown.checked,
+      allergens: selectedAllergens(els.customAllergenOptions, 'custom-allergen')
     });
     if (!result.ok) {
       els.customError.textContent = result.error;
@@ -724,6 +862,9 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.customName.value = '';
     els.customEmoji.value = '';
     els.customDensity.value = '';
+    els.customDiet.value = 'unknown';
+    els.customAllergensKnown.checked = false;
+    syncCustomAllergenFields();
     renderStapleList();
     renderCustomRecipeForm();
     renderAll();
@@ -1158,7 +1299,7 @@ const baseCatalog = createCatalog(ingredients, recipes);
     closeRecipeView();
     closeRecommendations();
     renderStapleList(); // an undone staple change must move its checkboxes back
-    refreshCustomPanels();
+    refreshDoorPanels();
     renderAll();
     announce('Undid ' + result.entry.kind + '.');
     if (undoStack.length > 0) {
@@ -1351,13 +1492,24 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
   function renderRecommendations() {
     els.recCards.innerHTML = '';
+    var filtered = hasActivePreferences(state.preferences);
+    els.recFilterNote.classList.toggle('hidden', !filtered);
+    els.recFilterNote.textContent = filtered
+      ? 'Hard filters on: ' + describePreferences(state.preferences) + '.'
+      : '';
+
     var picks = recommend(catalog, state);
     if (picks.length === 0) {
       // Empty state: no cards, just the friendly message (prd.md > Getting recommendations).
       els.recCards.classList.add('hidden');
-      els.recEmpty.textContent = trackedStockIds().length === 0
-        ? 'Uh-oh — your fridge is empty, please refuel.'
-        : "Unfortunately, there's nothing fitting.";
+      if (trackedStockIds().length === 0) {
+        els.recEmpty.textContent = 'Uh-oh — your fridge is empty, please refuel.';
+      } else if (filtered) {
+        els.recEmpty.textContent =
+          'Nothing in your fridge fits your food preferences right now.';
+      } else {
+        els.recEmpty.textContent = "Unfortunately, there's nothing fitting.";
+      }
       els.recEmpty.classList.remove('hidden');
       return;
     }
