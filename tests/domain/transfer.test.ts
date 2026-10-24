@@ -18,7 +18,12 @@ import { kitchenWithStock } from '../stock';
 function sampleKitchen(): KitchenState {
   const state = kitchenWithStock({ tomato: 2, egg: 6 });
   state.categories = [{ id: 'produce', name: 'Produce' }];
-  state.preferences = { diet: 'vegan', allergens: ['gluten', 'soy'] };
+  state.preferences = {
+    diet: 'vegan',
+    allergens: ['gluten', 'soy'],
+    maxTimeMinutes: 20,
+    meal: 'dinner',
+  };
   state.shoppingList = [{ ingredientId: 'onion', amount: 1, fromRecipeId: null }];
   return state;
 }
@@ -52,7 +57,7 @@ describe('buildExport', () => {
 });
 
 describe('exportJson', () => {
-  it('is valid JSON with a trailing newline and v4 lots', () => {
+  it('is valid JSON with a trailing newline and v5 lots', () => {
     const text = exportJson(sampleKitchen(), NOW);
     expect(text.endsWith('\n')).toBe(true);
     const state = JSON.parse(text).state;
@@ -66,7 +71,12 @@ describe('parseImportPayload', () => {
     const state = kitchenWithStock({ tomato: 2, egg: 6 }, {
       expiresAt: { tomato: '2026-10-30' },
     });
-    state.preferences = { diet: 'vegan', allergens: ['soy', 'gluten'] };
+    state.preferences = {
+      diet: 'vegan',
+      allergens: ['soy', 'gluten'],
+      maxTimeMinutes: 30,
+      meal: 'lunch',
+    };
     const result = parseImportPayload(catalog, exportJson(state, NOW));
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
@@ -242,22 +252,56 @@ describe('sanitizeState', () => {
 
   it('keeps valid food preferences and drops invalid ones', () => {
     const clean = sanitizeState(catalog, {
-      preferences: { diet: 'vegan', allergens: ['soy', 'ghost', 'soy', 'gluten'] },
+      preferences: {
+        diet: 'vegan',
+        allergens: ['soy', 'ghost', 'soy', 'gluten'],
+        maxTimeMinutes: 20,
+        meal: 'dinner',
+      },
     });
-    expect(clean.preferences).toEqual({ diet: 'vegan', allergens: ['soy', 'gluten'] });
+    expect(clean.preferences).toEqual({
+      diet: 'vegan',
+      allergens: ['soy', 'gluten'],
+      maxTimeMinutes: 20,
+      meal: 'dinner',
+    });
 
     const repaired = sanitizeState(catalog, {
-      preferences: { diet: 'keto', allergens: 'soy' },
+      preferences: { diet: 'keto', allergens: 'soy', maxTimeMinutes: -1, meal: 'brunch' },
     });
-    expect(repaired.preferences).toEqual({ diet: null, allergens: [] });
+    expect(repaired.preferences).toEqual({
+      diet: null,
+      allergens: [],
+      maxTimeMinutes: null,
+      meal: null,
+    });
   });
 
-  it('loads a schema 3 kitchen with food filters off', () => {
+  it('loads a schema 4 kitchen with time and meal filters off', () => {
     const clean = sanitizeState(catalog, {
-      schemaVersion: 3,
+      schemaVersion: 4,
       stockLots: [{ ingredientId: 'tomato', amount: 1 }],
     });
-    expect(clean.preferences).toEqual({ diet: null, allergens: [] });
+    expect(clean.preferences).toEqual({
+      diet: null,
+      allergens: [],
+      maxTimeMinutes: null,
+      meal: null,
+    });
+  });
+
+  it('keeps schema 4 custom recipes without time or meal metadata as unknown', () => {
+    const clean = sanitizeState(catalog, {
+      schemaVersion: 4,
+      customRecipes: [{
+        name: 'Old Recipe',
+        ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+        steps: ['Cook.'],
+      }],
+    });
+    expect(clean.customRecipes).toHaveLength(1);
+    expect(clean.customRecipes[0]!.timeMinutes).toBeUndefined();
+    expect(clean.customRecipes[0]!.mealTypes).toBeUndefined();
   });
 
   it('never throws on hostile shapes', () => {

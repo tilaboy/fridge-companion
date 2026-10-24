@@ -107,11 +107,22 @@
         <details id="preferences-panel" class="categories-panel">
           <summary class="categories-summary">Food preferences</summary>
           <p class="data-note">
-            These are hard filters: recipes that conflict with your diet or
-            allergens are hidden, never ranked lower. Always check labels.
+            These are hard filters: recipes that conflict with your diet,
+            allergens, time budget, or meal are hidden, never ranked lower.
+            Always check labels.
           </p>
           <label class="custom-label" for="preference-diet">Diet</label>
           <select id="preference-diet" class="preference-select" aria-label="Diet filter"></select>
+          <div class="preference-grid">
+            <div>
+              <label class="custom-label" for="preference-time">Time</label>
+              <select id="preference-time" class="preference-select" aria-label="Maximum cooking time"></select>
+            </div>
+            <div>
+              <label class="custom-label" for="preference-meal">Meal</label>
+              <select id="preference-meal" class="preference-select" aria-label="Meal filter"></select>
+            </div>
+          </div>
           <fieldset class="allergen-fieldset">
             <legend class="custom-label">Avoid allergens</legend>
             <div id="allergen-options" class="allergen-options"></div>
@@ -169,6 +180,16 @@
               <input id="custom-recipe-name" type="text" maxlength="60" placeholder="Recipe name" aria-label="Recipe name">
               <input id="custom-recipe-emoji" type="text" maxlength="16" placeholder="&#127869;" aria-label="Dish emoji (optional)">
             </div>
+            <label class="custom-label" for="custom-recipe-time">Cooking time in minutes</label>
+            <input id="custom-recipe-time" class="custom-density" type="text" inputmode="numeric" placeholder="e.g. 25 (optional)" aria-label="Cooking time in minutes (optional)">
+            <fieldset class="allergen-fieldset">
+              <legend class="custom-label">Meal types</legend>
+              <div id="custom-recipe-meals" class="allergen-options"></div>
+            </fieldset>
+            <p class="custom-hint">
+              Leave time or meal types blank if you are unsure. Recipes with
+              missing details are hidden while those filters are on.
+            </p>
             <p class="custom-hint">Pick what it needs one ingredient at a time.</p>
             <div class="custom-row recipe-builder">
               <select id="custom-recipe-ingredient" aria-label="Recipe ingredient"></select>

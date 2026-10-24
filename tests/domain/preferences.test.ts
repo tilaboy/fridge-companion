@@ -55,9 +55,42 @@ const book: Recipe[] = [
 
 const catalog = createCatalog(tray, book);
 
-const prefs = (diet: Preferences['diet'] = null, allergens: Preferences['allergens'] = []): Preferences => ({
+function withMeta(
+  id: string,
+  timeMinutes: number | undefined,
+  mealTypes: Recipe['mealTypes'],
+): Recipe {
+  const base = recipe(id, 'tomato');
+  if (timeMinutes !== undefined) base.timeMinutes = timeMinutes;
+  if (mealTypes !== undefined) base.mealTypes = mealTypes;
+  return base;
+}
+
+const timedBook: Recipe[] = [
+  withMeta('quick', 15, ['breakfast', 'lunch']),
+  withMeta('exact', 20, ['dinner']),
+  withMeta('slow', 45, ['dinner']),
+  withMeta('unknown-time', undefined, ['lunch']),
+  withMeta('unknown-meal', 10, undefined),
+  withMeta('empty-meals', 5, []),
+  withMeta('snack', 5, ['snack']),
+];
+const timedCatalog = createCatalog(tray, timedBook);
+const timedAllowed = (preferences: Preferences) =>
+  timedBook
+    .filter((entry) => recipeFitsPreferences(timedCatalog, entry, preferences))
+    .map((entry) => entry.id);
+
+const prefs = (
+  diet: Preferences['diet'] = null,
+  allergens: Preferences['allergens'] = [],
+  maxTimeMinutes: Preferences['maxTimeMinutes'] = null,
+  meal: Preferences['meal'] = null,
+): Preferences => ({
   diet,
   allergens,
+  maxTimeMinutes,
+  meal,
 });
 
 const allowed = (preferences: Preferences) =>
@@ -135,22 +168,70 @@ describe('allergen rules', () => {
   });
 });
 
+describe('time and meal rules', () => {
+  it('keeps recipes at or under the time budget', () => {
+    expect(timedAllowed(prefs(null, [], 20))).toEqual([
+      'quick', 'exact', 'unknown-meal', 'empty-meals', 'snack',
+    ]);
+    expect(timedAllowed(prefs(null, [], 5))).toEqual(['empty-meals', 'snack']);
+  });
+
+  it('fails closed when a recipe has no known cooking time', () => {
+    expect(timedAllowed(prefs())).toContain('unknown-time');
+    expect(timedAllowed(prefs(null, [], 45))).not.toContain('unknown-time');
+    expect(timedAllowed(prefs(null, [], 20))).not.toContain('unknown-time');
+  });
+
+  it('matches a selected meal only when the recipe declares it', () => {
+    expect(timedAllowed(prefs(null, [], null, 'lunch'))).toEqual([
+      'quick', 'unknown-time',
+    ]);
+    expect(timedAllowed(prefs(null, [], null, 'dinner'))).toEqual(['exact', 'slow']);
+    expect(timedAllowed(prefs(null, [], null, 'snack'))).toEqual(['snack']);
+  });
+
+  it('fails closed when meal metadata is missing or empty', () => {
+    expect(timedAllowed(prefs(null, [], null, 'lunch'))).not.toContain('unknown-meal');
+    expect(timedAllowed(prefs(null, [], null, 'lunch'))).not.toContain('empty-meals');
+  });
+
+  it('combines time and meal filters before ranking', () => {
+    expect(timedAllowed(prefs(null, [], 20, 'lunch'))).toEqual(['quick']);
+    expect(timedAllowed(prefs(null, [], 20, 'dinner'))).toEqual(['exact']);
+  });
+
+  it('does not hide unknown metadata when both filters are off', () => {
+    expect(timedAllowed(prefs())).toEqual(timedBook.map((entry) => entry.id));
+  });
+});
+
 describe('preference sanitizing and summaries', () => {
   it('keeps valid choices, drops junk, deduplicates, and orders deterministically', () => {
     expect(sanitizePreferences({
       diet: 'vegan',
       allergens: ['soy', 'soy', 'nope', 'gluten', 7],
-    })).toEqual({ diet: 'vegan', allergens: ['soy', 'gluten'] });
-    expect(sanitizePreferences({ diet: 'keto', allergens: 'soy' })).toEqual(prefs());
+      maxTimeMinutes: '20',
+      meal: 'lunch',
+    })).toEqual(prefs('vegan', ['soy', 'gluten'], 20, 'lunch'));
+    expect(sanitizePreferences({
+      diet: 'keto',
+      allergens: 'soy',
+      maxTimeMinutes: -5,
+      meal: 'brunch',
+    })).toEqual(prefs());
     expect(sanitizePreferences(null)).toEqual(prefs());
   });
 
   it('describes the active hard filters', () => {
     expect(hasActivePreferences(prefs())).toBe(false);
     expect(hasActivePreferences(prefs('vegan', ['gluten']))).toBe(true);
+    expect(hasActivePreferences(prefs(null, [], 20))).toBe(true);
+    expect(hasActivePreferences(prefs(null, [], null, 'dinner'))).toBe(true);
     expect(describePreferences(prefs())).toBe('No food filters');
     expect(describePreferences(prefs('vegan', ['gluten', 'soy'])))
       .toBe('Vegan · avoiding Gluten, Soy');
+    expect(describePreferences(prefs('vegan', ['gluten'], 20, 'dinner')))
+      .toBe('Vegan · avoiding Gluten · 20 min or less · Dinner');
   });
 
   it('exposes the canonical allergen list used by the UI', () => {

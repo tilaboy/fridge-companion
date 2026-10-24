@@ -34,18 +34,21 @@ function cloneIngredient(ingredient: Ingredient): Ingredient {
 }
 
 function cloneRecipe(recipe: Recipe): Recipe {
-  return {
+  const copy: Recipe = {
     id: recipe.id,
     name: recipe.name,
     dishEmoji: recipe.dishEmoji,
     ingredients: recipe.ingredients.map((ri) => ({ ingredientId: ri.ingredientId, amount: ri.amount })),
     steps: recipe.steps.slice(),
   };
+  if (recipe.timeMinutes !== undefined) copy.timeMinutes = recipe.timeMinutes;
+  if (recipe.mealTypes !== undefined) copy.mealTypes = recipe.mealTypes.slice();
+  return copy;
 }
 
 export function createState(): KitchenState {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     categories: [],
     preferences: createPreferences(),
     customIngredients: [],

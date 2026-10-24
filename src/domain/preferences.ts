@@ -7,8 +7,11 @@
  *   - `allergens: []`          -> known to contain none of the listed allergens.
  *
  * Dairy, egg, and fish are also derived from `dietClass`, so a missing
- * checkbox cannot make a known animal ingredient look allergen-free. The
- * filters are applied before ranking; they are never a score penalty.
+ * checkbox cannot make a known animal ingredient look allergen-free.
+ *
+ * Time and meal filters follow the same hard-filter rule: a recipe without
+ * known time or meal metadata is hidden while that filter is active. All
+ * filters run before ranking; they are never score penalties.
  */
 import type { Catalog } from './catalog';
 import { getIngredient } from './catalog';
@@ -17,6 +20,7 @@ import type {
   Diet,
   DietClass,
   Ingredient,
+  MealType,
   Preferences,
   Recipe,
 } from './types';
@@ -34,6 +38,14 @@ export const ALLERGENS: readonly Allergen[] = [
 ];
 
 export const DIETS: readonly Diet[] = ['vegetarian', 'vegan', 'pescatarian'];
+
+export const MEAL_TYPES: readonly MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+/** Time budgets offered by the UI; the domain accepts any sane minute value. */
+export const TIME_BUDGETS: readonly number[] = [20, 30, 45];
+
+/** Guardrail for hand-edited and imported data, not a product limit. */
+export const MAX_TIME_MINUTES = 240;
 
 export const DIET_CLASSES: readonly DietClass[] = [
   'plant',
@@ -63,6 +75,13 @@ export const DIET_LABELS: Record<Diet, string> = {
   pescatarian: 'Pescatarian',
 };
 
+export const MEAL_LABELS: Record<MealType, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snack',
+};
+
 export const DIET_CLASS_LABELS: Record<DietClass, string> = {
   plant: 'Plant-based',
   dairy: 'Dairy',
@@ -74,13 +93,15 @@ export const DIET_CLASS_LABELS: Record<DietClass, string> = {
 };
 
 export function createPreferences(): Preferences {
-  return { diet: null, allergens: [] };
+  return { diet: null, allergens: [], maxTimeMinutes: null, meal: null };
 }
 
 export function clonePreferences(preferences: Preferences): Preferences {
   return {
     diet: preferences.diet,
     allergens: preferences.allergens.slice(),
+    maxTimeMinutes: preferences.maxTimeMinutes ?? null,
+    meal: preferences.meal ?? null,
   };
 }
 
@@ -90,6 +111,19 @@ export function isAllergen(value: unknown): value is Allergen {
 
 export function isDiet(value: unknown): value is Diet {
   return typeof value === 'string' && (DIETS as readonly string[]).includes(value);
+}
+
+export function isMealType(value: unknown): value is MealType {
+  return typeof value === 'string' && (MEAL_TYPES as readonly string[]).includes(value);
+}
+
+export function isTimeMinutes(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= MAX_TIME_MINUTES
+  );
 }
 
 export function isDietClass(value: unknown): value is DietClass {
@@ -112,15 +146,29 @@ export function sanitizePreferences(raw: unknown): Preferences {
       if (isAllergen(value)) chosen.add(value);
     }
   }
+  const rawTime = record.maxTimeMinutes;
+  const maxTimeMinutes =
+    rawTime === null || rawTime === undefined || rawTime === ''
+      ? null
+      : isTimeMinutes(Number(rawTime))
+        ? Number(rawTime)
+        : null;
   return {
     diet,
     allergens: ALLERGENS.filter((allergen) => chosen.has(allergen)),
+    maxTimeMinutes,
+    meal: isMealType(record.meal) ? record.meal : null,
   };
 }
 
 export function hasActivePreferences(preferences: Preferences | undefined): boolean {
   if (!preferences) return false;
-  return preferences.diet !== null || preferences.allergens.length > 0;
+  return (
+    preferences.diet !== null ||
+    preferences.allergens.length > 0 ||
+    preferences.maxTimeMinutes != null ||
+    preferences.meal != null
+  );
 }
 
 /** The known diet class, or null when the ingredient has not declared one. */
@@ -154,7 +202,26 @@ export function dietAllows(diet: Diet, dietClass: DietClass): boolean {
   return dietClass !== 'meat'; // pescatarian
 }
 
-/** The single safety gate every recommendation passes through. */
+/** Known cooking time, or null when the recipe has not declared one. */
+export function recipeTimeMinutes(recipe: Recipe): number | null {
+  return isTimeMinutes(recipe.timeMinutes) ? recipe.timeMinutes : null;
+}
+
+/**
+ * Known meal slots, or null when the recipe has not declared them. A valid
+ * empty array is a positive declaration of "no slot", not unknown.
+ */
+export function recipeMealTypes(recipe: Recipe): readonly MealType[] | null {
+  if (!Array.isArray(recipe.mealTypes)) return null;
+  const chosen = new Set<MealType>();
+  for (const value of recipe.mealTypes) {
+    if (!isMealType(value)) return null;
+    chosen.add(value);
+  }
+  return MEAL_TYPES.filter((meal) => chosen.has(meal));
+}
+
+/** The single gate every recommendation passes through. */
 export function recipeFitsPreferences(
   catalog: Catalog,
   recipe: Recipe,
@@ -162,7 +229,21 @@ export function recipeFitsPreferences(
 ): boolean {
   const diet = preferences.diet;
   const avoided = preferences.allergens;
-  if (!diet && avoided.length === 0) return true;
+  const maxTimeMinutes = preferences.maxTimeMinutes ?? null;
+  const meal = preferences.meal ?? null;
+  if (!diet && avoided.length === 0 && maxTimeMinutes === null && meal === null) {
+    return true;
+  }
+
+  if (maxTimeMinutes !== null) {
+    const time = recipeTimeMinutes(recipe);
+    if (time === null || time > maxTimeMinutes) return false; // unknown time fails closed
+  }
+
+  if (meal !== null) {
+    const meals = recipeMealTypes(recipe);
+    if (!meals || !meals.includes(meal)) return false; // unknown meal fails closed
+  }
 
   for (const ri of recipe.ingredients) {
     const ingredient = getIngredient(catalog, ri.ingredientId);
@@ -201,5 +282,9 @@ export function describePreferences(preferences: Preferences): string {
       preferences.allergens.map((allergen) => ALLERGEN_LABELS[allergen]).join(', '),
     );
   }
+  if (preferences.maxTimeMinutes != null) {
+    parts.push(preferences.maxTimeMinutes + ' min or less');
+  }
+  if (preferences.meal != null) parts.push(MEAL_LABELS[preferences.meal]);
   return parts.join(' · ');
 }

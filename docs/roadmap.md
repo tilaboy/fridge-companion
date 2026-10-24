@@ -125,7 +125,7 @@ Missing:
 | Area | Carry over | Replace / add |
 | --- | --- | --- |
 | Kernel | score = have ÷ need, amount-level check, staples exclusion, top-N | hard filters, expiry weighting, explanations, history |
-| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v4, stock lots, custom items, hard preferences, migration |
+| State | versioned single object, `sanitizeState`, pure clone-on-write | schema v5, stock lots, custom items, hard preferences, time/meal metadata, migration |
 | Store | `loadState` / `saveState` seam | storage adapter interface + optional remote adapter |
 | UI | fridge-door metaphor, bubbles, pointer drag, reduced motion | focus management, keyboard path, dark mode, empty/error states |
 | Data | `data/ingredients.js`, `data/recipes.js` shape | richer schema, tags/allergens/time/servings, provenance |
@@ -160,7 +160,7 @@ record, and **accounts/sync deferred to v1.1** (household sharing ships as a
 kitchen file first). Size was never the reason to leave `localStorage`; silent
 eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md).
 
-## 7. Data model (current v4, with proposed additions)
+## 7. Data model (current v5, with proposed additions)
 
 ```js
 // Ingredient — built-in or user-created
@@ -181,6 +181,7 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 // Recipe
 {
   id, name, dishEmoji, servings, timeMinutes,
+  mealTypes: [],                             // breakfast | lunch | dinner | snack
   tags: [], dietFlags: [], allergens: [],   // current safety is derived from ingredients
   ingredients: [{ ingredientId, amount, unit, optional }],
   steps: [],
@@ -195,9 +196,10 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 // Persisted state
 {
-  schemaVersion: 4,
+  schemaVersion: 5,
   categories,
-  preferences: { diet, allergens },   // hard filters, never ranking penalties
+  // Hard filters, never ranking penalties.
+  preferences: { diet, allergens, maxTimeMinutes, meal },
   customIngredients,
   customRecipes,
   stockLots,
@@ -289,7 +291,7 @@ via export/import, and see a warning when a write fails.
 > recommended, cooked down its lots, refused a duplicate name, and survived
 > reload.
 >
-> Schema 4 adds hard food preferences. A recipe is allowed only when every
+> Schema 4 added hard food preferences. A recipe is allowed only when every
 > ingredient passes; a conflicting recipe is filtered before scoring, never
 > demoted. Built-in ingredients carry a diet class and conservative allergen
 > tags, dairy/egg/fish are also derived from the diet class, and an ingredient
@@ -309,21 +311,32 @@ via export/import, and see a warning when a write fails.
 - [x] Custom ingredients and recipes with validation and de-duplication.
 - [x] Configurable staples per user.
 - [x] Undo for cook and restock; confirmation for destructive actions.
-- [x] Idempotent v1 → v4 migration covered by tests.
+- [x] Idempotent v1 → v5 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is
 visible, and undo restores the exact prior state.
 
 ### M2 — Picks worth trusting (2–4 weeks)
 
-> Safety slice landed: schema 4, built-in and custom ingredient safety metadata,
-> a Food preferences panel, and hard diet/allergen filtering before ranking.
-> Unknown metadata fails closed. The remaining M2 work is time/meal metadata
-> and filters, expiry-weighted ranking, one-line card explanations, servings,
-> repetition avoidance, and recipe provenance.
+> Safety and time/meal slices landed: schema 5, built-in and custom ingredient
+> safety metadata, time and meal metadata on every built-in recipe, a Food
+> preferences panel, and hard diet/allergen/time/meal filtering before ranking.
+> Unknown metadata fails closed, and cards show the time and meal they matched.
+> The remaining M2 work is expiry-weighted ranking, one-line card explanations,
+> servings, repetition avoidance, and recipe provenance.
+>
+> Schema 5 adds time and meal metadata. All 35 built-in recipes declare a
+> cooking time and at least one meal slot; custom recipes can declare both, and
+> recipes with missing metadata stay hidden while that filter is active. The
+> Food preferences panel has time and meal selects, recommendation cards show
+> the metadata they matched, and the same hard-filter-before-ranking path is
+> used. Verified in Chrome: a 15-minute lunch survived a 20-minute + lunch
+> filter, a 25-minute lunch and a legacy no-metadata recipe disappeared, dinner
+> hid the lunch recipes, the filters survived reload, undo restored the prior
+> filters, and an invalid custom time was refused.
 
 - [x] Diet and allergen filters are hard constraints; never violated.
-- [ ] Time budget and meal type filters.
+- [x] Time budget and meal type filters.
 - [ ] Expiry-weighted ranking; each card states why it ranked.
 - [ ] Servings scaling adjusts amounts and deductions.
 - [ ] Repetition avoidance from cook history.

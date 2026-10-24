@@ -12,6 +12,8 @@ export const recipes: Recipe[] = [
       id: 'scrambled_eggs',
       name: 'Scrambled Eggs',
       dishEmoji: '\uD83C\uDF73',
+      timeMinutes: 10,
+      mealTypes: ['breakfast'],
       ingredients: [
         { ingredientId: 'egg', amount: 3 },
         { ingredientId: 'butter', amount: 10 },
@@ -28,6 +30,8 @@ export const recipes: Recipe[] = [
       id: 'tomato_pasta',
       name: 'Tomato Pasta',
       dishEmoji: '\uD83C\uDF45',
+      timeMinutes: 25,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'tomato', amount: 2 },
@@ -46,6 +50,8 @@ export const recipes: Recipe[] = [
       id: 'home_fries',
       name: 'Home Fries',
       dishEmoji: '\uD83E\uDD54',
+      timeMinutes: 25,
+      mealTypes: ['breakfast'],
       ingredients: [
         { ingredientId: 'potato', amount: 3 },
         { ingredientId: 'olive_oil', amount: 20 },
@@ -63,6 +69,8 @@ export const recipes: Recipe[] = [
       id: 'cheese_toast',
       name: 'Cheese Toast',
       dishEmoji: '\uD83E\uDDC0',
+      timeMinutes: 10,
+      mealTypes: ['breakfast', 'snack'],
       ingredients: [
         { ingredientId: 'bread', amount: 2 },
         { ingredientId: 'cheese', amount: 40 },
@@ -78,6 +86,8 @@ export const recipes: Recipe[] = [
       id: 'broccoli_stir_fry',
       name: 'Broccoli Stir-Fry',
       dishEmoji: '\uD83E\uDD66',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'broccoli', amount: 2 },
         { ingredientId: 'soy_sauce', amount: 20 },
@@ -95,6 +105,8 @@ export const recipes: Recipe[] = [
       id: 'egg_fried_rice',
       name: 'Egg Fried Rice',
       dishEmoji: '\uD83C\uDF73',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 300 },
         { ingredientId: 'egg', amount: 2 },
@@ -112,6 +124,8 @@ export const recipes: Recipe[] = [
       id: 'creamy_carrot_soup',
       name: 'Creamy Carrot Soup',
       dishEmoji: '\uD83E\uDD55',
+      timeMinutes: 35,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'carrot', amount: 4 },
         { ingredientId: 'milk', amount: 200 },
@@ -129,6 +143,8 @@ export const recipes: Recipe[] = [
       id: 'garlic_bread',
       name: 'Garlic Bread',
       dishEmoji: '\uD83E\uDDC4',
+      timeMinutes: 20,
+      mealTypes: ['snack'],
       ingredients: [
         { ingredientId: 'bread', amount: 4 },
         { ingredientId: 'garlic', amount: 3 },
@@ -145,6 +161,8 @@ export const recipes: Recipe[] = [
       id: 'mushroom_omelette',
       name: 'Mushroom Omelette',
       dishEmoji: '\uD83C\uDF44',
+      timeMinutes: 15,
+      mealTypes: ['breakfast'],
       ingredients: [
         { ingredientId: 'egg', amount: 3 },
         { ingredientId: 'mushroom', amount: 100 },
@@ -162,6 +180,8 @@ export const recipes: Recipe[] = [
       id: 'lemon_butter_pasta',
       name: 'Lemon Butter Pasta',
       dishEmoji: '\uD83C\uDF4B',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'lemon', amount: 1 },
@@ -179,6 +199,8 @@ export const recipes: Recipe[] = [
       id: 'honey_toast',
       name: 'Honey Toast',
       dishEmoji: '\uD83C\uDF6F',
+      timeMinutes: 5,
+      mealTypes: ['breakfast', 'snack'],
       ingredients: [
         { ingredientId: 'bread', amount: 2 },
         { ingredientId: 'honey', amount: 20 },
@@ -194,6 +216,8 @@ export const recipes: Recipe[] = [
       id: 'spinach_and_eggs',
       name: 'Spinach and Eggs',
       dishEmoji: '\uD83E\uDD6C',
+      timeMinutes: 15,
+      mealTypes: ['breakfast', 'lunch'],
       ingredients: [
         { ingredientId: 'spinach', amount: 1 },
         { ingredientId: 'egg', amount: 2 },
@@ -210,6 +234,8 @@ export const recipes: Recipe[] = [
       id: 'soy_rice_bowl',
       name: 'Soy Rice Bowl',
       dishEmoji: '\uD83C\uDF5B',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 250 },
         { ingredientId: 'egg', amount: 2 },
@@ -225,6 +251,8 @@ export const recipes: Recipe[] = [
       id: 'potato_carrot_stew',
       name: 'Potato Carrot Stew',
       dishEmoji: '\uD83C\uDF72',
+      timeMinutes: 40,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'potato', amount: 2 },
         { ingredientId: 'carrot', amount: 2 },
@@ -243,6 +271,8 @@ export const recipes: Recipe[] = [
       id: 'leftover_pasta_toss',
       name: 'Leftover Pasta Toss',
       dishEmoji: '\uD83E\uDED1',
+      timeMinutes: 15,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'cooked_pasta', amount: 250 },
         { ingredientId: 'bell_pepper', amount: 2 },
@@ -261,6 +291,8 @@ export const recipes: Recipe[] = [
       id: 'pasta_aglio_e_olio',
       name: 'Pasta Aglio e Olio',
       dishEmoji: '\uD83C\uDF5D',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'garlic', amount: 3 },
@@ -278,6 +310,8 @@ export const recipes: Recipe[] = [
       id: 'eggs_in_tomato_sauce',
       name: 'Eggs in Tomato Sauce',
       dishEmoji: '\uD83C\uDF45',
+      timeMinutes: 25,
+      mealTypes: ['breakfast', 'lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'tomato', amount: 3 },
         { ingredientId: 'egg', amount: 3 },
@@ -296,6 +330,8 @@ export const recipes: Recipe[] = [
       id: 'french_onion_soup',
       name: 'French Onion Soup',
       dishEmoji: '\uD83E\uDDC5',
+      timeMinutes: 45,
+      mealTypes: ['dinner'],
       ingredients: [
         { ingredientId: 'onion', amount: 3 },
         { ingredientId: 'cheese', amount: 50 },
@@ -312,6 +348,8 @@ export const recipes: Recipe[] = [
       id: 'mashed_potatoes',
       name: 'Mashed Potatoes',
       dishEmoji: '\uD83E\uDD54',
+      timeMinutes: 30,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'potato', amount: 4 },
         { ingredientId: 'milk', amount: 100 },
@@ -328,6 +366,8 @@ export const recipes: Recipe[] = [
       id: 'mushroom_pasta',
       name: 'Mushroom Pasta',
       dishEmoji: '\uD83C\uDF44',
+      timeMinutes: 25,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'pasta', amount: 200 },
         { ingredientId: 'mushroom', amount: 150 },
@@ -346,6 +386,8 @@ export const recipes: Recipe[] = [
       id: 'spinach_fried_rice',
       name: 'Spinach Fried Rice',
       dishEmoji: '\uD83E\uDD6C',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 250 },
         { ingredientId: 'spinach', amount: 1 },
@@ -364,6 +406,8 @@ export const recipes: Recipe[] = [
       id: 'cheese_potato_bake',
       name: 'Cheese Potato Bake',
       dishEmoji: '\uD83E\uDDC0',
+      timeMinutes: 45,
+      mealTypes: ['dinner'],
       ingredients: [
         { ingredientId: 'potato', amount: 3 },
         { ingredientId: 'cheese', amount: 60 },
@@ -382,6 +426,8 @@ export const recipes: Recipe[] = [
       id: 'tomato_veggie_rice',
       name: 'Tomato Veggie Rice',
       dishEmoji: '\uD83C\uDF45',
+      timeMinutes: 25,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'cooked_rice', amount: 250 },
         { ingredientId: 'tomato', amount: 2 },
@@ -400,6 +446,8 @@ export const recipes: Recipe[] = [
       id: 'pancakes',
       name: 'Pancakes',
       dishEmoji: '\uD83E\uDD5E',
+      timeMinutes: 20,
+      mealTypes: ['breakfast'],
       ingredients: [
         { ingredientId: 'flour', amount: 150 },
         { ingredientId: 'milk', amount: 200 },
@@ -418,6 +466,8 @@ export const recipes: Recipe[] = [
       id: 'rice_pudding',
       name: 'Rice Pudding',
       dishEmoji: '\uD83C\uDF5A',
+      timeMinutes: 45,
+      mealTypes: ['snack'],
       ingredients: [
         { ingredientId: 'rice', amount: 80 },
         { ingredientId: 'milk', amount: 300 },
@@ -433,6 +483,8 @@ export const recipes: Recipe[] = [
       id: 'one_pan_potato_bake',
       name: 'One-Pan Potato Bake',
       dishEmoji: '\uD83C\uDF72',
+      timeMinutes: 45,
+      mealTypes: ['dinner'],
       ingredients: [
         { ingredientId: 'potato', amount: 2 },
         { ingredientId: 'carrot', amount: 1 },
@@ -452,6 +504,8 @@ export const recipes: Recipe[] = [
       id: 'chicken_stir_fry',
       name: 'Chicken Stir-Fry',
       dishEmoji: '\uD83C\uDF57',
+      timeMinutes: 25,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'chicken', amount: 200 },
         { ingredientId: 'bell_pepper', amount: 1 },
@@ -470,6 +524,8 @@ export const recipes: Recipe[] = [
       id: 'pan_seared_chicken',
       name: 'Pan-Seared Chicken',
       dishEmoji: '\uD83C\uDF57',
+      timeMinutes: 25,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'chicken', amount: 250 },
         { ingredientId: 'butter', amount: 15 },
@@ -487,6 +543,8 @@ export const recipes: Recipe[] = [
       id: 'beef_bolognese',
       name: 'Beef Bolognese',
       dishEmoji: '\uD83C\uDF5D',
+      timeMinutes: 45,
+      mealTypes: ['dinner'],
       ingredients: [
         { ingredientId: 'beef', amount: 250 },
         { ingredientId: 'tomato', amount: 3 },
@@ -506,6 +564,8 @@ export const recipes: Recipe[] = [
       id: 'bacon_egg_pasta',
       name: 'Bacon & Egg Pasta',
       dishEmoji: '\uD83E\uDD53',
+      timeMinutes: 25,
+      mealTypes: ['breakfast', 'lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'bacon', amount: 100 },
         { ingredientId: 'pasta', amount: 200 },
@@ -523,6 +583,8 @@ export const recipes: Recipe[] = [
       id: 'ham_cheese_toast',
       name: 'Ham & Cheese Toast',
       dishEmoji: '\uD83E\uDD6A',
+      timeMinutes: 10,
+      mealTypes: ['breakfast', 'lunch', 'snack'],
       ingredients: [
         { ingredientId: 'bread', amount: 2 },
         { ingredientId: 'ham', amount: 60 },
@@ -540,6 +602,8 @@ export const recipes: Recipe[] = [
       id: 'sausage_potato_skillet',
       name: 'Sausage & Potato Skillet',
       dishEmoji: '\uD83C\uDF2D',
+      timeMinutes: 30,
+      mealTypes: ['breakfast', 'dinner'],
       ingredients: [
         { ingredientId: 'sausage', amount: 2 },
         { ingredientId: 'potato', amount: 3 },
@@ -558,6 +622,8 @@ export const recipes: Recipe[] = [
       id: 'chicken_soup',
       name: 'Chicken Soup',
       dishEmoji: '\uD83C\uDF72',
+      timeMinutes: 45,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'chicken', amount: 200 },
         { ingredientId: 'carrot', amount: 2 },
@@ -576,6 +642,8 @@ export const recipes: Recipe[] = [
       id: 'salmon_spinach',
       name: 'Salmon & Spinach',
       dishEmoji: '\uD83D\uDC1F',
+      timeMinutes: 25,
+      mealTypes: ['dinner'],
       ingredients: [
         { ingredientId: 'salmon', amount: 200 },
         { ingredientId: 'spinach', amount: 1 },
@@ -594,6 +662,8 @@ export const recipes: Recipe[] = [
       id: 'tuna_pasta',
       name: 'Tuna Pasta',
       dishEmoji: '\uD83D\uDC20',
+      timeMinutes: 20,
+      mealTypes: ['lunch', 'dinner'],
       ingredients: [
         { ingredientId: 'tuna', amount: 150 },
         { ingredientId: 'pasta', amount: 200 },

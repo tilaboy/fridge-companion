@@ -10,7 +10,14 @@
 import type { Catalog } from './catalog';
 import { getIngredient } from './catalog';
 import { roundAmount } from './amount';
-import { ALLERGENS, isAllergen, isDietClass } from './preferences';
+import {
+  ALLERGENS,
+  MEAL_TYPES,
+  isAllergen,
+  isDietClass,
+  isMealType,
+  isTimeMinutes,
+} from './preferences';
 import { cloneState } from './state';
 import { dimensionOf, isUnit } from './units';
 import type {
@@ -20,6 +27,7 @@ import type {
   Ingredient,
   IngredientId,
   KitchenState,
+  MealType,
   Recipe,
   Unit,
 } from './types';
@@ -185,6 +193,10 @@ export interface CustomRecipeIngredientInput {
 export interface CustomRecipeInput {
   name: string;
   dishEmoji?: string;
+  /** Blank/absent means unknown, so time filters fail closed. */
+  timeMinutes?: number | string | null;
+  /** Absent/empty means no declared slot, so meal filters hide it. */
+  mealTypes?: readonly string[] | null;
   ingredients: readonly CustomRecipeIngredientInput[];
   steps: readonly string[];
 }
@@ -199,6 +211,25 @@ function cleanSteps(raw: readonly string[]): string[] {
     .map((step) => (typeof step === 'string' ? step.trim().slice(0, 500) : ''))
     .filter((step) => step !== '')
     .slice(0, STEP_MAX);
+}
+
+/** undefined = not declared, null = invalid, number = valid minutes. */
+function readRecipeTime(raw: unknown): number | undefined | null {
+  if (raw === null || raw === undefined || String(raw).trim() === '') return undefined;
+  const value = Number(String(raw).replace(',', '.'));
+  return isTimeMinutes(value) ? value : null;
+}
+
+/** undefined = not declared, null = invalid, array = valid meal slots. */
+function readMealTypes(raw: unknown): MealType[] | undefined | null {
+  if (raw === null || raw === undefined) return undefined;
+  if (!Array.isArray(raw)) return null;
+  const chosen = new Set<MealType>();
+  for (const value of raw) {
+    if (!isMealType(value)) return null;
+    chosen.add(value);
+  }
+  return MEAL_TYPES.filter((meal) => chosen.has(meal));
 }
 
 /** Combine repeated ingredient rows instead of storing the same id twice. */
@@ -257,6 +288,13 @@ export function addCustomRecipe(
   const steps = cleanSteps(input.steps);
   if (steps.length === 0) return { ok: false, error: 'Add at least one step.' };
 
+  const timeMinutes = readRecipeTime(input.timeMinutes);
+  if (timeMinutes === null) {
+    return { ok: false, error: 'Time must be a whole number of minutes between 1 and 240.' };
+  }
+  const mealTypes = readMealTypes(input.mealTypes);
+  if (mealTypes === null) return { ok: false, error: 'Pick meal types from the list.' };
+
   const taken = new Set(allRecipes.map((recipe) => recipe.id));
   const recipe: Recipe = {
     id: uniqueId('custom-recipe-', name, taken),
@@ -265,6 +303,8 @@ export function addCustomRecipe(
     ingredients,
     steps,
   };
+  if (timeMinutes !== undefined) recipe.timeMinutes = timeMinutes;
+  if (mealTypes !== undefined) recipe.mealTypes = mealTypes;
 
   const next = cloneState(state);
   next.customRecipes = next.customRecipes.concat([recipe]);
@@ -400,6 +440,12 @@ export function sanitizeCustomRecipes(
       ingredients,
       steps,
     };
+    const timeMinutes = readRecipeTime(record.timeMinutes);
+    if (timeMinutes !== null && timeMinutes !== undefined) {
+      recipe.timeMinutes = timeMinutes;
+    }
+    const mealTypes = readMealTypes(record.mealTypes);
+    if (mealTypes !== null && mealTypes !== undefined) recipe.mealTypes = mealTypes;
     usedIds.add(id);
     names.add(key);
     out.push(recipe);

@@ -27,7 +27,7 @@ import type {
 } from './types';
 
 export const APP_ID = 'fridge-companion';
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;

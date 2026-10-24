@@ -12,7 +12,10 @@ import {
   DIET_CLASSES,
   DIET_CLASS_LABELS,
   DIET_LABELS,
+  MEAL_LABELS,
+  MEAL_TYPES,
   SEEDED_CATEGORIES,
+  TIME_BUDGETS,
   acceptedUnits,
   addCustomIngredient,
   addCustomRecipe,
@@ -99,6 +102,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.seedList = document.getElementById('seed-list');
     els.stapleList = document.getElementById('staple-list');
     els.preferenceDiet = document.getElementById('preference-diet');
+    els.preferenceTime = document.getElementById('preference-time');
+    els.preferenceMeal = document.getElementById('preference-meal');
     els.allergenOptions = document.getElementById('allergen-options');
     els.clearPreferences = document.getElementById('clear-preferences');
     els.preferencesStatus = document.getElementById('preferences-status');
@@ -116,6 +121,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
     els.customRecipeForm = document.getElementById('custom-recipe-form');
     els.customRecipeName = document.getElementById('custom-recipe-name');
     els.customRecipeEmoji = document.getElementById('custom-recipe-emoji');
+    els.customRecipeTime = document.getElementById('custom-recipe-time');
+    els.customRecipeMeals = document.getElementById('custom-recipe-meals');
     els.customRecipeIngredient = document.getElementById('custom-recipe-ingredient');
     els.customRecipeAmount = document.getElementById('custom-recipe-amount');
     els.customRecipeUnit = document.getElementById('custom-recipe-unit');
@@ -190,10 +197,15 @@ const baseCatalog = createCatalog(ingredients, recipes);
     persist(state);
 
     buildDietOptions(els.preferenceDiet, 'No diet filter');
+    buildTimeOptions(els.preferenceTime, 'Any time');
+    buildMealOptions(els.preferenceMeal, 'Any meal', 'preference-meal', 'preference-meal', true);
     buildDietClassOptions(els.customDiet);
     buildAllergenOptions(els.allergenOptions, 'preference-allergen', 'allergen');
     buildAllergenOptions(els.customAllergenOptions, 'custom-allergen', 'custom-allergen');
+    buildMealOptions(els.customRecipeMeals, null, 'custom-recipe-meal', 'custom-recipe-meal', false);
     els.preferenceDiet.addEventListener('change', onPreferencesChange);
+    els.preferenceTime.addEventListener('change', onPreferencesChange);
+    els.preferenceMeal.addEventListener('change', onPreferencesChange);
     els.allergenOptions.addEventListener('change', onPreferencesChange);
     els.clearPreferences.addEventListener('click', onClearPreferences);
     els.customAllergensKnown.addEventListener('change', syncCustomAllergenFields);
@@ -533,6 +545,50 @@ const baseCatalog = createCatalog(ingredients, recipes);
     });
   }
 
+  function buildTimeOptions(select, noneLabel) {
+    select.innerHTML = '';
+    var none = document.createElement('option');
+    none.value = '';
+    none.textContent = noneLabel;
+    select.appendChild(none);
+    TIME_BUDGETS.forEach(function (minutes) {
+      var option = document.createElement('option');
+      option.value = String(minutes);
+      option.textContent = minutes + ' min or less';
+      select.appendChild(option);
+    });
+  }
+
+  function buildMealOptions(container, noneLabel, idPrefix, dataAttribute, isSelect) {
+    container.innerHTML = '';
+    if (isSelect) {
+      var none = document.createElement('option');
+      none.value = '';
+      none.textContent = noneLabel;
+      container.appendChild(none);
+    }
+    MEAL_TYPES.forEach(function (meal) {
+      if (isSelect) {
+        var option = document.createElement('option');
+        option.value = meal;
+        option.textContent = MEAL_LABELS[meal];
+        container.appendChild(option);
+        return;
+      }
+      var label = document.createElement('label');
+      label.className = 'allergen-option';
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.id = idPrefix + '-' + meal;
+      input.setAttribute('data-' + dataAttribute, meal);
+      var text = document.createElement('span');
+      text.textContent = MEAL_LABELS[meal];
+      label.appendChild(input);
+      label.appendChild(text);
+      container.appendChild(label);
+    });
+  }
+
   function buildDietClassOptions(select) {
     select.innerHTML = '';
     DIET_CLASSES.forEach(function (dietClass) {
@@ -571,8 +627,16 @@ const baseCatalog = createCatalog(ingredients, recipes);
     return chosen;
   }
 
+  function selectedMeals(container, dataAttribute) {
+    return selectedAllergens(container, dataAttribute);
+  }
+
   function renderPreferencesForm() {
     els.preferenceDiet.value = state.preferences.diet || '';
+    els.preferenceTime.value = state.preferences.maxTimeMinutes
+      ? String(state.preferences.maxTimeMinutes)
+      : '';
+    els.preferenceMeal.value = state.preferences.meal || '';
     var chosen = {};
     state.preferences.allergens.forEach(function (allergen) { chosen[allergen] = true; });
     els.allergenOptions.querySelectorAll('input[data-allergen]').forEach(function (input) {
@@ -584,12 +648,21 @@ const baseCatalog = createCatalog(ingredients, recipes);
   function readPreferences() {
     return {
       diet: els.preferenceDiet.value || null,
-      allergens: selectedAllergens(els.allergenOptions, 'allergen')
+      allergens: selectedAllergens(els.allergenOptions, 'allergen'),
+      maxTimeMinutes: els.preferenceTime.value
+        ? Number(els.preferenceTime.value)
+        : null,
+      meal: els.preferenceMeal.value || null
     };
   }
 
   function preferencesEqual(a, b) {
-    if (a.diet !== b.diet || a.allergens.length !== b.allergens.length) return false;
+    if (
+      a.diet !== b.diet ||
+      a.maxTimeMinutes !== b.maxTimeMinutes ||
+      a.meal !== b.meal ||
+      a.allergens.length !== b.allergens.length
+    ) return false;
     for (var i = 0; i < a.allergens.length; i++) {
       if (a.allergens[i] !== b.allergens[i]) return false;
     }
@@ -614,7 +687,12 @@ const baseCatalog = createCatalog(ingredients, recipes);
 
   function onClearPreferences() {
     if (!hasActivePreferences(state.preferences)) return;
-    applyPreferences({ diet: null, allergens: [] }, 'Cleared food filters.');
+    applyPreferences({
+      diet: null,
+      allergens: [],
+      maxTimeMinutes: null,
+      meal: null
+    }, 'Cleared food filters.');
     renderPreferencesForm();
   }
 
@@ -762,9 +840,17 @@ const baseCatalog = createCatalog(ingredients, recipes);
       name.textContent = recipe.name;
       var meta = document.createElement('span');
       meta.className = 'draft-amount';
-      meta.textContent = recipe.ingredients.length +
-        (recipe.ingredients.length === 1 ? ' ingredient' : ' ingredients') +
-        ' \u00b7 ' + recipe.steps.length + (recipe.steps.length === 1 ? ' step' : ' steps');
+      var details = [];
+      if (recipe.timeMinutes) details.push(recipe.timeMinutes + ' min');
+      if (recipe.mealTypes && recipe.mealTypes.length) {
+        details.push(recipe.mealTypes.map(function (meal) {
+          return MEAL_LABELS[meal] || meal;
+        }).join(', '));
+      }
+      details.push(recipe.ingredients.length +
+        (recipe.ingredients.length === 1 ? ' ingredient' : ' ingredients'));
+      details.push(recipe.steps.length + (recipe.steps.length === 1 ? ' step' : ' steps'));
+      meta.textContent = details.join(' \u00b7 ');
       li.appendChild(emoji);
       li.appendChild(name);
       li.appendChild(meta);
@@ -777,6 +863,8 @@ const baseCatalog = createCatalog(ingredients, recipes);
     var result = addCustomRecipe(catalog, state, {
       name: els.customRecipeName.value,
       dishEmoji: els.customRecipeEmoji.value,
+      timeMinutes: els.customRecipeTime.value,
+      mealTypes: selectedMeals(els.customRecipeMeals, 'custom-recipe-meal'),
       ingredients: session.recipeDraft,
       steps: els.customRecipeSteps.value.split(/\r?\n/)
     });
@@ -794,6 +882,10 @@ const baseCatalog = createCatalog(ingredients, recipes);
     session.recipeDraft = [];
     els.customRecipeName.value = '';
     els.customRecipeEmoji.value = '';
+    els.customRecipeTime.value = '';
+    els.customRecipeMeals.querySelectorAll('input').forEach(function (input) {
+      input.checked = false;
+    });
     els.customRecipeAmount.value = '';
     els.customRecipeSteps.value = '';
     els.customRecipeError.classList.add('hidden');
@@ -1528,11 +1620,23 @@ const baseCatalog = createCatalog(ingredients, recipes);
       dots += '<span class="dot' + (i < pick.have ? ' dot-filled' : '') + '"></span>';
     }
 
+    var details = [];
+    if (pick.recipe.timeMinutes) details.push(pick.recipe.timeMinutes + ' min');
+    if (pick.recipe.mealTypes && pick.recipe.mealTypes.length) {
+      details.push(pick.recipe.mealTypes.map(function (meal) {
+        return MEAL_LABELS[meal] || meal;
+      }).join(', '));
+    }
+    var meta = details.length
+      ? '<p class="rec-meta">' + details.join(' \u00b7 ') + '</p>'
+      : '';
+
     card.innerHTML =
       '<div class="rec-dish">' + pick.recipe.dishEmoji + '</div>' +
       '<h3 class="rec-name">' + escapeHtml(pick.recipe.name) + '</h3>' +
       '<p class="rec-fit">You have ' + pick.have + '/' + pick.total +
         (pick.missing > 0 ? ' &middot; Missing: ' + pick.missing : ' &middot; all set') + '</p>' +
+      meta +
       '<div class="rec-dots" aria-hidden="true">' + dots + '</div>';
     // Tapping a card brings it to center (spec > Components > Recipe card view).
     card.setAttribute('role', 'button');

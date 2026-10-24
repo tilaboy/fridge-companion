@@ -28,6 +28,9 @@ export type Allergen =
 /** Diets are hard constraints, not ranking preferences. */
 export type Diet = 'vegetarian' | 'vegan' | 'pescatarian';
 
+/** Coarse meal slots. A recipe may fit more than one. */
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
 /**
  * One coarse food class per ingredient. It is enough to decide the supported
  * diets without pretending to be a nutrition database. `unknown` is a
@@ -70,6 +73,16 @@ export interface Recipe {
   id: RecipeId;
   name: string;
   dishEmoji: string;
+  /**
+   * Total cooking time in minutes. Absent means unknown: the recipe is hidden
+   * while a time-budget filter is active.
+   */
+  timeMinutes?: number;
+  /**
+   * Meal slots this recipe suits. Absent means unknown: the recipe is hidden
+   * while a meal filter is active. An empty array means "no declared slot".
+   */
+  mealTypes?: MealType[];
   ingredients: RecipeIngredient[];
   steps: string[];
 }
@@ -110,6 +123,10 @@ export interface Preferences {
   diet: Diet | null;
   /** Every selected allergen is a hard exclusion. */
   allergens: Allergen[];
+  /** Maximum total cooking time in minutes; null means no time filter. */
+  maxTimeMinutes: number | null;
+  /** One meal slot; null means no meal filter. */
+  meal: MealType | null;
 }
 
 export interface KitchenState {

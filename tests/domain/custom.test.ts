@@ -6,7 +6,9 @@ import {
   normalizeName,
   sanitizeCustomIngredients,
   sanitizeCustomRecipes,
+  type CustomRecipeInput,
 } from '../../src/domain/custom';
+import { createPreferences } from '../../src/domain/preferences';
 import { addToStock, setPreferences } from '../../src/domain/state';
 import { stockTotals } from '../../src/domain/lots';
 import { recommend } from '../../src/domain/recommend';
@@ -353,6 +355,51 @@ describe('addCustomRecipe', () => {
     expect(result.state.customRecipes).toEqual([result.recipe]);
   });
 
+  it('stores declared time and meal metadata, normalized and deduplicated', () => {
+    const result = addCustomRecipe(catalog, kitchen(), {
+      name: 'Quick Lunch',
+      timeMinutes: '15',
+      mealTypes: ['lunch', 'lunch', 'dinner'],
+      ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+      steps: ['Cook.'],
+    });
+    if (!result.ok) throw new Error(result.error);
+    expect(result.recipe.timeMinutes).toBe(15);
+    expect(result.recipe.mealTypes).toEqual(['lunch', 'dinner']);
+  });
+
+  it('rejects invalid time and meal metadata', () => {
+    const cases = [
+      [{ timeMinutes: '0' }, 'Time'],
+      [{ timeMinutes: 'soon' }, 'Time'],
+      [{ timeMinutes: 241 }, 'Time'],
+      [{ mealTypes: ['brunch'] }, 'meal'],
+      [{ mealTypes: 'lunch' }, 'meal'],
+    ] as const;
+    for (const [extra, fragment] of cases) {
+      const input = {
+        name: 'Bad Metadata',
+        ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+        steps: ['Cook.'],
+        ...extra,
+      } as CustomRecipeInput;
+      const result = addCustomRecipe(catalog, kitchen(), input);
+      expect(result.ok, JSON.stringify(extra)).toBe(false);
+      if (!result.ok) expect(result.error.toLowerCase()).toContain(fragment.toLowerCase());
+    }
+  });
+
+  it('leaves undeclared time and meal metadata unknown', () => {
+    const result = addCustomRecipe(catalog, kitchen(), {
+      name: 'Mystery Dinner',
+      ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+      steps: ['Cook.'],
+    });
+    if (!result.ok) throw new Error(result.error);
+    expect(result.recipe.timeMinutes).toBeUndefined();
+    expect(result.recipe.mealTypes).toBeUndefined();
+  });
+
   it('refuses duplicate names and broken ingredients or steps', () => {
     const builtIn = addCustomRecipe(catalog, kitchen(), {
       name: 'tomato soup', ingredients: [{ ingredientId: 'tomato', amount: 1 }], steps: ['x'],
@@ -420,6 +467,67 @@ describe('sanitizeCustomRecipes', () => {
     expect(clean[1]!.id).toBe('custom-recipe-same-id-as-built-in');
   });
 
+  it('keeps valid time and meal metadata, and treats malformed metadata as unknown', () => {
+    const clean = sanitizeCustomRecipes(
+      catalog,
+      [
+        {
+          name: 'Quick Dinner',
+          timeMinutes: '15',
+          mealTypes: ['dinner', 'dinner'],
+          ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+          steps: ['Cook.'],
+        },
+        {
+          name: 'Bad Time',
+          timeMinutes: 0,
+          mealTypes: ['lunch'],
+          ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+          steps: ['Cook.'],
+        },
+        {
+          name: 'Bad Meal',
+          timeMinutes: 10,
+          mealTypes: ['brunch'],
+          ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+          steps: ['Cook.'],
+        },
+        {
+          name: 'Legacy Recipe',
+          ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+          steps: ['Cook.'],
+        },
+      ],
+      [],
+    );
+    expect(clean[0]).toMatchObject({ timeMinutes: 15, mealTypes: ['dinner'] });
+    expect(clean[1]!.timeMinutes).toBeUndefined();
+    expect(clean[1]!.mealTypes).toEqual(['lunch']);
+    expect(clean[2]!.timeMinutes).toBe(10);
+    expect(clean[2]!.mealTypes).toBeUndefined();
+    expect(clean[3]!.timeMinutes).toBeUndefined();
+    expect(clean[3]!.mealTypes).toBeUndefined();
+  });
+
+  it('round-trips recipe time and meal metadata', () => {
+    const recipe = addCustomRecipe(catalog, kitchen(), {
+      name: 'Quick Dinner',
+      timeMinutes: 15,
+      mealTypes: ['dinner'],
+      ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+      steps: ['Cook.'],
+    });
+    if (!recipe.ok) throw new Error(recipe.error);
+
+    const result = parseImportPayload(catalog, exportJson(recipe.state));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.state.customRecipes[0]).toMatchObject({
+      name: 'Quick Dinner',
+      timeMinutes: 15,
+      mealTypes: ['dinner'],
+    });
+  });
+
   it('resolves custom ingredients and survives export/import', () => {
     const added = addedIngredient(kitchen(), 'Okra');
     const recipe = addCustomRecipe(catalog, added.state, {
@@ -478,11 +586,61 @@ describe('a merged catalog uses custom recipes', () => {
       [builtInRecipe].concat(recipe.state.customRecipes),
     );
     const stocked = addToStock(recipe.state, added.ingredient.id, 2);
-    const shellfishFree = setPreferences(stocked, { diet: null, allergens: ['shellfish'] });
+    const shellfishFree = setPreferences(stocked, {
+      ...createPreferences(),
+      allergens: ['shellfish'],
+    });
     expect(recommend(merged, shellfishFree).map((pick) => pick.recipe.id))
       .not.toContain('custom-recipe-shrimp-bowl');
     expect(recommend(merged, stocked).map((pick) => pick.recipe.id))
       .toContain('custom-recipe-shrimp-bowl');
+  });
+
+  it('filters custom recipes by time and meal, failing closed when metadata is missing', () => {
+    const recipe = addCustomRecipe(catalog, kitchen(), {
+      name: 'Quick Lunch',
+      timeMinutes: 15,
+      mealTypes: ['lunch'],
+      ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+      steps: ['Cook.'],
+    });
+    if (!recipe.ok) throw new Error(recipe.error);
+
+    const legacy = addCustomRecipe(catalog, recipe.state, {
+      name: 'Legacy Lunch',
+      ingredients: [{ ingredientId: 'tomato', amount: 1 }],
+      steps: ['Cook.'],
+    });
+    if (!legacy.ok) throw new Error(legacy.error);
+
+    const merged = createCatalog(
+      tray,
+      [builtInRecipe].concat(legacy.state.customRecipes),
+    );
+    const stocked = addToStock(legacy.state, 'tomato', 2);
+    const quickLunch = setPreferences(stocked, {
+      ...createPreferences(),
+      maxTimeMinutes: 20,
+      meal: 'lunch',
+    });
+    const dinner = setPreferences(stocked, {
+      ...createPreferences(),
+      maxTimeMinutes: 20,
+      meal: 'dinner',
+    });
+    const tighter = setPreferences(stocked, {
+      ...createPreferences(),
+      maxTimeMinutes: 10,
+      meal: 'lunch',
+    });
+
+    const quickPicks = recommend(merged, quickLunch).map((pick) => pick.recipe.id);
+    expect(quickPicks).toContain('custom-recipe-quick-lunch');
+    expect(quickPicks).not.toContain('custom-recipe-legacy-lunch');
+    expect(recommend(merged, dinner).map((pick) => pick.recipe.id))
+      .not.toContain('custom-recipe-quick-lunch');
+    expect(recommend(merged, tighter).map((pick) => pick.recipe.id))
+      .not.toContain('custom-recipe-quick-lunch');
   });
 
   it('hides legacy custom ingredients with unknown safety metadata under a filter', () => {
@@ -499,7 +657,7 @@ describe('a merged catalog uses custom recipes', () => {
       [builtInRecipe].concat(recipe.state.customRecipes),
     );
     const stocked = addToStock(recipe.state, added.ingredient.id, 2);
-    const vegan = setPreferences(stocked, { diet: 'vegan', allergens: [] });
+    const vegan = setPreferences(stocked, { ...createPreferences(), diet: 'vegan' });
     expect(recommend(merged, vegan).map((pick) => pick.recipe.id))
       .not.toContain('custom-recipe-okra-solo');
   });

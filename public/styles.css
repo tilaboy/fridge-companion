@@ -207,6 +207,14 @@ body {
   border-color: var(--accent);
 }
 
+.preference-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.preference-grid > div { display: grid; gap: 4px; }
+
 .allergen-fieldset {
   border: 0;
   margin: 4px 0;
@@ -1189,7 +1197,9 @@ body.is-dragging { cursor: grabbing; user-select: none; }
 
 .rec-name { margin: 8px 0 4px; font-size: 17px; }
 
-.rec-fit { margin: 0 0 10px; font-size: 13px; color: var(--ink-soft); }
+.rec-fit { margin: 0 0 4px; font-size: 13px; color: var(--ink-soft); }
+
+.rec-meta { margin: 0 0 10px; font-size: 12px; color: var(--ink-soft); }
 
 .rec-dots { display: flex; gap: 5px; justify-content: center; }
 
