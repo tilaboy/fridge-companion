@@ -2,8 +2,9 @@
  *
  * Every commit action replaces the state with a fresh object, so one snapshot
  * is enough to restore the exact prior kitchen — lots, expiry dates, ids,
- * shopping list, categories. The stack lives in memory only: undo is for the
- * "oops" right after a gesture, not a versioned history that has to sync.
+ * shopping list, categories, cook history. The stack lives in memory only:
+ * undo is for the "oops" right after a gesture, not a versioned history that
+ * has to sync.
  */
 import { cloneState } from './state';
 import type { KitchenState } from './types';

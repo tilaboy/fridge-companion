@@ -3,11 +3,14 @@
  * All pure. "Cook this" deducts what the kitchen actually holds — the full
  * recipe amount when there is enough, otherwise whatever is left, never below
  * zero — taking the soonest-expiring batch first. Staples are never deducted
- * or shopped for.
+ * or shopped for. A successful cook also appends a bounded cook event so
+ * recommendations can avoid repeating the same dish too soon.
  */
 import type { Catalog } from './catalog';
 import { getIngredient } from './catalog';
+import { appendCookEvent, nextCookEventId } from './cookHistory';
 import { addLot, sortedLotsFor, stockTotals, totalAmount } from './lots';
+import { recipeServings } from './servings';
 import { cloneState } from './state';
 import { isStapleFor } from './staples';
 import { missingIngredients } from './recommend';
@@ -33,7 +36,12 @@ function deductLots(state: KitchenState, ingredientId: string, amount: number): 
   state.stockLots = state.stockLots.filter((lot) => lot.amount > 0);
 }
 
-export function cookRecipe(catalog: Catalog, state: KitchenState, recipe: Recipe): KitchenState {
+export function cookRecipe(
+  catalog: Catalog,
+  state: KitchenState,
+  recipe: Recipe,
+  now: Date = new Date(),
+): KitchenState {
   const next = cloneState(state);
   for (const ri of recipe.ingredients) {
     if (isStapleFor(catalog, state, ri.ingredientId)) continue;
@@ -41,6 +49,14 @@ export function cookRecipe(catalog: Catalog, state: KitchenState, recipe: Recipe
     if (held <= 0) continue; // missing: untouched
     deductLots(next, ri.ingredientId, ri.amount);
   }
+
+  const cookedAt = now.toISOString();
+  next.cookHistory = appendCookEvent(next.cookHistory, {
+    id: nextCookEventId(next.cookHistory, recipe.id, cookedAt),
+    recipeId: recipe.id,
+    cookedAt,
+    servings: recipeServings(recipe),
+  });
   return next;
 }
 

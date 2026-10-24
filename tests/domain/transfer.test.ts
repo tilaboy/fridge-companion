@@ -25,6 +25,12 @@ function sampleKitchen(): KitchenState {
     meal: 'dinner',
   };
   state.shoppingList = [{ ingredientId: 'onion', amount: 1, fromRecipeId: null }];
+  state.cookHistory = [{
+    id: 'cook-sample',
+    recipeId: 'scrambled_eggs',
+    cookedAt: '2026-10-20T12:00:00.000Z',
+    servings: 4,
+  }];
   return state;
 }
 
@@ -50,14 +56,16 @@ describe('buildExport', () => {
     envelope.state.stockLots[0]!.amount = 99;
     envelope.state.categories[0]!.name = 'Changed';
     envelope.state.preferences.allergens.push('sesame');
+    envelope.state.cookHistory[0]!.servings = 8;
     expect(state.stockLots[0]!.amount).toBe(2);
     expect(state.categories[0]!.name).toBe('Produce');
     expect(state.preferences.allergens).toEqual(['gluten', 'soy']);
+    expect(state.cookHistory[0]!.servings).toBe(4);
   });
 });
 
 describe('exportJson', () => {
-  it('is valid JSON with a trailing newline and v6 lots', () => {
+  it('is valid JSON with a trailing newline and v7 lots', () => {
     const text = exportJson(sampleKitchen(), NOW);
     expect(text.endsWith('\n')).toBe(true);
     const state = JSON.parse(text).state;
@@ -67,7 +75,7 @@ describe('exportJson', () => {
 });
 
 describe('parseImportPayload', () => {
-  it('round-trips an export, expiry and preferences included', () => {
+  it('round-trips an export, expiry, preferences, and cook history', () => {
     const state = kitchenWithStock({ tomato: 2, egg: 6 }, {
       expiresAt: { tomato: '2026-10-30' },
     });
@@ -77,6 +85,12 @@ describe('parseImportPayload', () => {
       maxTimeMinutes: 30,
       meal: 'lunch',
     };
+    state.cookHistory = [{
+      id: 'cook-round-trip',
+      recipeId: 'scrambled_eggs',
+      cookedAt: '2026-10-22T12:00:00.000Z',
+      servings: 4,
+    }];
     const result = parseImportPayload(catalog, exportJson(state, NOW));
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(result.error);
@@ -84,6 +98,7 @@ describe('parseImportPayload', () => {
     expect(result.legacy).toBe(false);
     expect(result.schemaVersion).toBe(SCHEMA_VERSION);
     expect(result.state.preferences).toEqual(state.preferences);
+    expect(result.state.cookHistory).toEqual(state.cookHistory);
     expect(result.state.stockLots.find((lot) => lot.ingredientId === 'tomato')?.expiresAt)
       .toBe('2026-10-30');
   });
@@ -120,8 +135,9 @@ describe('parseImportPayload', () => {
       ['{"app":"fridge-companion","state":{}}', 'no readable schema version'],
       [`{"app":"fridge-companion","schemaVersion":${SCHEMA_VERSION + 1},"state":{"stock":{"tomato":1}}}`, 'newer version'],
       ['{"hello":"world"}', 'does not look like'],
-      ['{"categories":[],"stock":{},"shoppingList":[]}', 'no stock'],
-      ['{"categories":[],"stockLots":[],"shoppingList":[]}', 'no stock'],
+      ['{"cookHistory":[{"recipeId":"scrambled_eggs","cookedAt":"2026-10-20T00:00:00.000Z"}]}', 'does not look like'],
+      ['{"categories":[],"stock":{},"shoppingList":[]}', 'no kitchen data'],
+      ['{"categories":[],"stockLots":[],"shoppingList":[]}', 'no kitchen data'],
     ];
     for (const [text, fragment] of cases) {
       const result = parseImportPayload(catalog, text);
@@ -303,6 +319,33 @@ describe('sanitizeState', () => {
     expect(clean.customRecipes[0]!.servings).toBe(2);
     expect(clean.customRecipes[0]!.timeMinutes).toBeUndefined();
     expect(clean.customRecipes[0]!.mealTypes).toBeUndefined();
+  });
+
+  it('loads a schema 6 kitchen with an empty cook history', () => {
+    const clean = sanitizeState(catalog, {
+      schemaVersion: 6,
+      stockLots: [{ ingredientId: 'tomato', amount: 1 }],
+    }, { now: NOW });
+    expect(clean.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(clean.cookHistory).toEqual([]);
+  });
+
+  it('repairs cook history on import and drops unknown or future events', () => {
+    const clean = sanitizeState(catalog, {
+      cookHistory: [
+        { id: 'a', recipeId: 'scrambled_eggs', cookedAt: '2026-10-22T12:00:00.000Z', servings: 4 },
+        { id: 'a', recipeId: 'scrambled_eggs', cookedAt: '2026-10-21T12:00:00.000Z', servings: '2' },
+        { id: 'bad-servings', recipeId: 'scrambled_eggs', cookedAt: '2026-10-20T12:00:00.000Z', servings: 99 },
+        { recipeId: 'ghost', cookedAt: '2026-10-23T12:00:00.000Z', servings: 2 },
+        { recipeId: 'scrambled_eggs', cookedAt: 'not a date', servings: 2 },
+        { recipeId: 'scrambled_eggs', cookedAt: '2026-10-26T12:00:00.000Z', servings: 2 },
+      ],
+    }, { knownOnly: true, now: NOW });
+    expect(clean.cookHistory).toEqual([
+      { id: 'bad-servings', recipeId: 'scrambled_eggs', cookedAt: '2026-10-20T12:00:00.000Z', servings: 2 },
+      { id: 'a-x', recipeId: 'scrambled_eggs', cookedAt: '2026-10-21T12:00:00.000Z', servings: 2 },
+      { id: 'a', recipeId: 'scrambled_eggs', cookedAt: '2026-10-22T12:00:00.000Z', servings: 4 },
+    ]);
   });
 
   it('never throws on hostile shapes', () => {

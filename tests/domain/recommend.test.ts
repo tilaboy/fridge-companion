@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createCatalog } from '../../src/domain/catalog';
+import {
+  COOK_RECENT_MULTIPLIER,
+  COOK_WEEK_MULTIPLIER,
+} from '../../src/domain/cookHistory';
 import { stockTotals } from '../../src/domain/lots';
 import {
   EXPIRED_EXPIRY_PENALTY,
@@ -12,7 +16,7 @@ import {
   recommend,
   scoreRecipe,
 } from '../../src/domain/recommend';
-import type { Ingredient, KitchenState, Recipe } from '../../src/domain/types';
+import type { CookEvent, Ingredient, KitchenState, Recipe } from '../../src/domain/types';
 import { kitchenWithStock } from '../stock';
 
 const tray: Ingredient[] = [
@@ -112,6 +116,15 @@ const expiryCatalog = createCatalog(expiryTray, expiryBook);
 const expiryNow = new Date('2026-10-23T12:00:00');
 
 const kitchen = (stock: Record<string, number>): KitchenState => kitchenWithStock(stock);
+
+function cooked(recipeId: string, cookedAt: string): CookEvent {
+  return {
+    id: 'cook-' + recipeId + '-' + cookedAt,
+    recipeId,
+    cookedAt,
+    servings: 2,
+  };
+}
 
 describe('scoreRecipe', () => {
   it('counts an ingredient only when the amount is sufficient', () => {
@@ -281,6 +294,63 @@ describe('expiry weighting', () => {
       expiryNow,
     )[0]!;
     expect(twoShort.explanation).toBe('Closest match \u2014 2 short.');
+  });
+});
+
+describe('repetition avoidance', () => {
+  const now = new Date('2026-10-24T12:00:00.000Z');
+
+  it('damps a recent repeat below an equal alternative without changing its honest score', () => {
+    const state = kitchen({ egg: 2, cheese: 50, tomato: 1 });
+    state.cookHistory = [cooked('omelette', '2026-10-23T12:00:00.000Z')];
+
+    const picks = recommend(catalog, state, [book[0]!, book[1]!], now);
+    expect(picks.map((pick) => pick.recipe.id)).toEqual(['salad', 'omelette']);
+
+    const repeat = picks[1]!;
+    expect(repeat.score).toBe(1);
+    expect(repeat.cook).toMatchObject({
+      lastCookedAt: '2026-10-23T12:00:00.000Z',
+      multiplier: COOK_RECENT_MULTIPLIER,
+    });
+    expect(repeat.cook?.daysSince).toBeCloseTo(1);
+    expect(repeat.rank).toBeCloseTo(lengthMultiplier(2) * COOK_RECENT_MULTIPLIER);
+    expect(repeat.explanation).toBe('Cooked yesterday.');
+  });
+
+  it('uses only the latest cook and lets a fortnight-old cook stop mattering', () => {
+    const state = kitchen({ egg: 2, cheese: 50 });
+    state.cookHistory = [
+      cooked('omelette', '2026-10-04T12:00:00.000Z'),
+      cooked('omelette', '2026-10-21T12:00:00.000Z'),
+    ];
+    const recent = recommend(catalog, state, [book[0]!], now)[0]!;
+    expect(recent.cook?.multiplier).toBe(COOK_WEEK_MULTIPLIER);
+
+    state.cookHistory = [cooked('omelette', '2026-10-04T12:00:00.000Z')];
+    const old = recommend(catalog, state, [book[0]!], now)[0]!;
+    expect(old.cook).toBeUndefined();
+    expect(old.rank).toBeCloseTo(lengthMultiplier(2));
+    expect(old.explanation).toBe('You already have everything.');
+  });
+
+  it('never hides a recent repeat when it is the only useful recipe', () => {
+    const state = kitchen({ egg: 2, cheese: 50 });
+    state.cookHistory = [cooked('omelette', '2026-10-24T11:00:00.000Z')];
+    const picks = recommend(catalog, state, [book[0]!], now);
+    expect(picks.map((pick) => pick.recipe.id)).toEqual(['omelette']);
+    expect(picks[0]!.explanation).toBe('Cooked today.');
+  });
+
+  it('keeps expiry as the first explanation when both nudges apply', () => {
+    const state = kitchenWithStock(
+      { spinach: 1, rice: 1 },
+      { expiresAt: { spinach: '2026-10-24' } },
+    );
+    state.cookHistory = [cooked('spinach-dish', '2026-10-20T12:00:00')];
+    const pick = recommend(expiryCatalog, state, [expiryBook[0]!], expiryNow)[0]!;
+    expect(pick.cook).toMatchObject({ multiplier: COOK_WEEK_MULTIPLIER });
+    expect(pick.explanation).toMatch(/^Use Spinach \u2014 use by /);
   });
 });
 

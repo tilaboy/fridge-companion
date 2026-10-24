@@ -64,6 +64,9 @@ describe('the core loop', () => {
     expect(stockTotals(state.stockLots)).toEqual({ egg: 2, pasta: 100 });
     expect(saveState(state, storage)).toBe(true);
     expect(stockTotals(loadState(catalog, storage).stockLots)).toEqual({ egg: 2, pasta: 100 });
+    expect(loadState(catalog, storage).cookHistory).toMatchObject([
+      { recipeId: 'scrambled_eggs', servings: 2 },
+    ]);
 
     // 5. The picks move on, and another card can be shopped for.
     picks = recommend(catalog, state);

@@ -159,7 +159,7 @@ record, and **accounts/sync deferred to v1.1** (household sharing ships as a
 kitchen file first). Size was never the reason to leave `localStorage`; silent
 eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md).
 
-## 7. Data model (current v6, with proposed additions)
+## 7. Data model (current v7, with proposed additions)
 
 ```js
 // Ingredient — built-in or user-created
@@ -197,7 +197,7 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
 
 // Persisted state
 {
-  schemaVersion: 6,
+  schemaVersion: 7,
   categories,
   // Hard filters, never ranking penalties.
   preferences: { diet, allergens, maxTimeMinutes, meal },
@@ -205,7 +205,7 @@ eviction was. See [`adr/0002-storage-and-sync.md`](adr/0002-storage-and-sync.md)
   customRecipes,
   stockLots,
   shoppingList,
-  cookHistory,
+  cookHistory,                 // newest last, capped at 50
   settings: { unitSystem, staples, dislikes }
 }
 ```
@@ -312,7 +312,7 @@ via export/import, and see a warning when a write fails.
 - [x] Custom ingredients and recipes with validation and de-duplication.
 - [x] Configurable staples per user.
 - [x] Undo for cook and restock; confirmation for destructive actions.
-- [x] Idempotent v1 → v6 migration covered by tests.
+- [x] Idempotent v1 → v7 migration covered by tests.
 
 **Done when:** 0.5 kg of mince satisfies a 200 g recipe, an expiring item is
 visible, and undo restores the exact prior state.
@@ -320,12 +320,12 @@ visible, and undo restores the exact prior state.
 ### M2 — Picks worth trusting (2–4 weeks)
 
 > Safety, time/meal, and freshness slices landed at schema 5; servings followed
-> at schema 6. Built-in and custom ingredient safety metadata, time and meal
-> metadata on every built-in recipe, a Food preferences panel, hard
-> diet/allergen/time/meal filtering before ranking, expiry-weighted ordering,
-> and a one-line reason on every card.
-> Unknown metadata fails closed, and cards show the time and meal they matched.
-> The remaining M2 work is repetition avoidance and recipe provenance.
+> at schema 6, and repetition avoidance at schema 7. Built-in and custom
+> ingredient safety metadata, time and meal metadata on every built-in recipe, a
+> Food preferences panel, hard diet/allergen/time/meal filtering before ranking,
+> expiry-weighted ordering, and a one-line reason on every card. Unknown
+> metadata fails closed, and cards show the time and meal they matched. The
+> remaining M2 work is recipe provenance and content depth.
 >
 > Schema 5 adds time and meal metadata. All 35 built-in recipes declare a
 > cooking time and at least one meal slot; custom recipes can declare both, and
@@ -363,12 +363,27 @@ visible, and undo restores the exact prior state.
 > sent 400 g / 4 pcs / 4 cloves / 30 ml to the list; the stepper clamped at one
 > and twelve; a custom recipe saved with four servings; and the card stayed
 > inside a 390px viewport.
+>
+> Schema 7 adds a bounded cook history. A successful "Cook this" records the
+> recipe, timestamp, and chosen yield; history is newest-last, capped at 50, and
+> undo restores the prior history with the whole-kitchen snapshot. Ranking keeps
+> only the latest cook per recipe as a soft multiplier — ×0.5 within 2 days,
+> ×0.8 within 7, ×0.95 within 14, then 1 — so a recent repeat can fall behind a
+> close alternative but is never hidden. The card says "Cooked today",
+> "Cooked yesterday", or "Cooked N days ago" after any expiry reason. Invalid,
+> future-dated, or unknown-recipe events are dropped on import; a schema 6
+> kitchen loads with an empty history. Verified in Chrome: with complete pasta
+> and eggs, the pasta led on fit; after a three-day-old pasta cook, the eggs
+> moved ahead and the pasta card read "Cooked 3 days ago."; in a custom-only
+> kitchen the repeat stayed as the sole card and read "Cooked yesterday."; a
+> cook appended the chosen yield, undo restored the prior history and stock,
+> and an offline reload still opened the shell.
 
 - [x] Diet and allergen filters are hard constraints; never violated.
 - [x] Time budget and meal type filters.
 - [x] Expiry-weighted ranking; each card states why it ranked.
 - [x] Servings scaling adjusts amounts and deductions.
-- [ ] Repetition avoidance from cook history.
+- [x] Repetition avoidance from cook history.
 - [ ] 150+ recipes with recorded provenance and licensing.
 
 **Done when:** a shellfish-allergic user never sees shellfish, "under 20 min"

@@ -72,10 +72,24 @@ describe('cookRecipe', () => {
     ]);
   });
 
-  it('does not mutate the state it was given', () => {
+  it('records a cook event with the chosen yield and timestamp', () => {
+    const now = new Date('2026-10-24T12:00:00.000Z');
+    const next = cookRecipe(catalog, kitchen({ egg: 5, cheese: 100 }), scaleRecipe(recipe, 4), now);
+    expect(next.cookHistory).toEqual([
+      {
+        id: 'cook-omelette-' + now.getTime(),
+        recipeId: 'omelette',
+        cookedAt: now.toISOString(),
+        servings: 4,
+      },
+    ]);
+  });
+
+  it('does not mutate the state or its history', () => {
     const before = kitchen({ egg: 5, cheese: 100 });
     cookRecipe(catalog, before, recipe);
     expect(stockTotals(before.stockLots)).toEqual({ egg: 5, cheese: 100 });
+    expect(before.cookHistory).toEqual([]);
   });
 });
 

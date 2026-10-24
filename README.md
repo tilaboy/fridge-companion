@@ -12,17 +12,17 @@ and its history is carried over here.
 **https://tilaboy.github.io/fridge-companion/** — installable, works offline,
 and can no longer lose a kitchen silently. The pure domain is typed modules
 with a real test suite, and the browser runs a Vite-built shell on top of it.
-Schema 5 holds stock as lots with optional expiry (so the fridge can say "use
-this first"), the kitchen's own ingredients and recipes, and hard food
-preferences; v1–v4 kitchens migrate in place. Amounts take fractions and units:
-`½ kg` of beef is stored as `500 g` and satisfies a `250 g` recipe, and mass ↔
-volume converts when the ingredient declares a density. Pantry staples are
-configurable per kitchen — marking one clears its stock and shopping entries,
-and undo restores them. You can add your own ingredients (with a category, unit,
-optional density, diet class, and allergen declaration) and recipes (ingredient
-rows, steps, cooking time, and meal types); names are validated and
-de-duplicated, and both join recommendations, export/import, and cross-tab
-sync.
+Schema 7 holds stock as lots with optional expiry (so the fridge can say "use
+this first"), the kitchen's own ingredients and recipes, hard food preferences,
+base serving counts, and a bounded cook history; v1–v6 kitchens migrate in
+place. Amounts take fractions and units: `½ kg` of beef is stored as `500 g`
+and satisfies a `250 g` recipe, and mass ↔ volume converts when the ingredient
+declares a density. Pantry staples are configurable per kitchen — marking one
+clears its stock and shopping entries, and undo restores them. You can add your
+own ingredients (with a category, unit, optional density, diet class, and
+allergen declaration) and recipes (ingredient rows, steps, cooking time, and
+meal types); names are validated and de-duplicated, and both join
+recommendations, export/import, and cross-tab sync.
 
 Diet, allergen, time, and meal filters are hard constraints applied before
 ranking: a recipe is hidden unless every ingredient is declared safe, its
@@ -35,12 +35,15 @@ without time or meal details stay hidden while those filters are on. Cards show
 the time and meal they matched, plus a one-line reason for their place in the
 list: a complete recipe that can use up soon-expiring stock gets a lift and
 says which ingredient to use first, expired stock is de-prioritized and
-flagged, and otherwise the line states the fit. The recipe card scales from its
-base yield, so checklist amounts, shopping quantities, and cooking deductions
-all follow the servings you choose; legacy recipes default to two. Cooking,
-restocking, shopping purchases, and preference changes can be undone from a
-toast that restores the exact prior kitchen. Next: M2 cook-history repetition
-avoidance and recipe provenance, per the
+flagged, and otherwise the line states the fit or when a repeat was last
+cooked. A recipe cooked in the last two weeks is softly de-prioritized — ×0.5
+within two days, ×0.8 within a week, ×0.95 within a fortnight — so a close
+alternative can win. It is never hidden, and the card says when it was last
+cooked. The recipe card scales from its base yield, so checklist amounts,
+shopping quantities, and cooking deductions all follow the servings you choose;
+legacy recipes default to two. Cooking, restocking, shopping purchases, and
+preference changes can be undone from a toast that restores the exact prior
+kitchen. Next: M2 recipe provenance and content depth, per the
 [production roadmap](docs/roadmap.md).
 
 Decided: [TypeScript + Vite, no framework](docs/adr/0001-stack.md) and
@@ -88,10 +91,10 @@ cannot load from it (see `devpost/spec.md > Where It Runs and How Someone Tries 
 1. **First open:** the fridge door is already there, with one floating bubble per suggested category (Produce, Dairy, Pantry, Leftovers, Meat & Fish) around it. Rename them or add your own under **Rename or add categories** under the fridge.
 2. **Fill the fridge:** tap the fridge to swing its door open, or tap a bubble to swell it into that category's icons. Then tap an icon and enter an amount, **press and drag** it onto the fridge, or double-click it for a default portion. Tap the fridge again (or **Close the door**) to shut it. Staples (milk, flour, salt, sugar) are assumed to be in your kitchen, so they never appear in a bubble.
 3. **Reload the page:** your kitchen is exactly as you left it.
-4. **Press My Recipes** (it sits right under the fridge): the app scores every built-in recipe against your stock and shows the top 2–3. Longer recipes get a thumb on the scale, so a full dinner is not beaten by a two-ingredient snack.
+4. **Press My Recipes** (it sits right under the fridge): the app scores every built-in recipe against your stock and shows the top 2–3. Longer recipes get a thumb on the scale, so a full dinner is not beaten by a two-ingredient snack; a recent repeat steps back so a close alternative can win.
 5. **Tap a card:** it comes to center with the green/red have-or-missing checklist and the steps. Set the servings with the − / + control — the amounts, shopping quantities, and cooking deductions scale with it. Press **Cook this** — watch the ingredients combine, and watch the amounts it removes float off the fridge and evaporate ("Out of the fridge"). **Generate the shopping list** only appears when the recipe is actually missing something; a recipe you can already make shows "Cook this" alone.
 6. **Shop and restock:** the shopping-list card sits on the fridge door. Press **Got it** on an item and it moves into your stock with the recipe's quantity — so the next My Recipes answers differently.
-7. **Keep a copy:** open **Your data** under the fridge and press **Export kitchen**. You get a versioned JSON file with your categories, stock, and shopping list. **Import kitchen** validates a file before replacing anything and refuses newer formats rather than guessing. **Reset kitchen** starts over and clears only this app's key.
+7. **Keep a copy:** open **Your data** under the fridge and press **Export kitchen**. You get a versioned JSON file with your categories, stock, preferences, custom items, and cook history. **Import kitchen** validates a file before replacing anything and refuses newer formats rather than guessing. **Reset kitchen** starts over and clears only this app's key.
 
 ## Install it, go offline
 

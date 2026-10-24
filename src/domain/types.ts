@@ -103,6 +103,16 @@ export interface ShoppingItem {
   fromRecipeId: RecipeId | null;
 }
 
+/** One successful "Cook this" commit, kept for repetition avoidance. */
+export interface CookEvent {
+  id: string;
+  recipeId: RecipeId;
+  /** ISO timestamp. */
+  cookedAt: string;
+  /** The yield that was cooked, after any scaling in the recipe view. */
+  servings: number;
+}
+
 /** Held amount per ingredient. Absent means zero. Derived from lots. */
 export type Stock = Record<IngredientId, number>;
 
@@ -147,6 +157,11 @@ export interface KitchenState {
   stockLots: StockLot[];
   shoppingList: ShoppingItem[];
   /**
+   * Successful cooks, oldest first and capped. Used only to de-prioritize
+   * repetition; it is never a hard filter and never hides a recipe.
+   */
+  cookHistory: CookEvent[];
+  /**
    * Per-kitchen staple choices, layered over the tray defaults.
    *
    * Absent (or unmentioned) means "use the ingredient's built-in default".
@@ -174,16 +189,27 @@ export interface ExpirySignal {
   multiplier: number;
 }
 
+/** The repetition signal considered when ranking a recommendation. */
+export interface CookSignal {
+  lastCookedAt: string;
+  /** Whole or fractional days since the latest cook. */
+  daysSince: number;
+  /** 1 when the cook is too old to matter; <1 while it is recent. */
+  multiplier: number;
+}
+
 export interface ScoredRecipe {
   recipe: Recipe;
   have: number;
   missing: number;
   total: number;
   score: number;
-  /** fit × length bias × freshness; only present on ranked recommendations. */
+  /** fit × length bias × freshness × recency; only present on ranked picks. */
   rank?: number;
   /** The freshness signal behind the rank; only present on ranked picks. */
   expiry?: ExpirySignal;
+  /** The repetition signal behind the rank; only present when recent. */
+  cook?: CookSignal;
   /** One deterministic line explaining the card's place in the list. */
   explanation?: string;
 }

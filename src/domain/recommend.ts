@@ -5,17 +5,20 @@
  * counts as missing. Staples are excluded from both sides — they are assumed
  * on hand and already paid for.
  *
- * Rank adds two deliberate nudges to the honest score: the existing length
- * bias, and freshness. A complete recipe that can use up an ingredient
- * expiring within three days gets a lift; one carrying already-expired stock
- * is damped and says so on its card. Partial recipes get no freshness nudge:
- * the kitchen cannot actually use the ingredient until the missing items
- * arrive. Expired lots still count as held in this slice (cook and shop
+ * Rank adds three deliberate nudges to the honest score: the existing length
+ * bias, freshness, and repetition avoidance. A complete recipe that can use up
+ * an ingredient expiring within three days gets a lift; one carrying
+ * already-expired stock is damped and says so on its card. Partial recipes get
+ * no freshness nudge: the kitchen cannot actually use the ingredient until the
+ * missing items arrive. A recipe cooked recently is de-prioritized so a close
+ * alternative can win, but it is never hidden; its card says when it was last
+ * cooked. Expired lots still count as held in this slice (cook and shop
  * semantics are unchanged), so the warning is the guardrail rather than a
  * silent disappearance.
  */
 import { getIngredient } from './catalog';
 import type { Catalog } from './catalog';
+import { cookRecencyLabel, recentCookSignal } from './cookHistory';
 import {
   expiryLabel,
   expiryStatus,
@@ -59,10 +62,11 @@ export function scoreRecipe(
 }
 
 /**
- * Ranking weight = fit × (1 + LENGTH_BONUS × tracked ingredients) × freshness.
- * `score` itself stays the honest fit ratio the cards display — only the
- * order changes. A nearly-complete long recipe can knowingly outrank a
- * complete short one.
+ * Ranking weight = fit × (1 + LENGTH_BONUS × tracked ingredients) × freshness
+ * × recency. `score` itself stays the honest fit ratio the cards display —
+ * only the order changes. A nearly-complete long recipe can knowingly outrank
+ * a complete short one, and a recent repeat can fall behind a close
+ * alternative.
  */
 export const LENGTH_BONUS = 0.1;
 
@@ -122,7 +126,7 @@ function noExpirySignal(): ExpirySignal {
   return { ingredientId: null, expiresAt: null, status: 'none', multiplier: 1 };
 }
 
-/** A deterministic one-liner for the card: freshness first, then fit. */
+/** A deterministic one-liner for the card: freshness, recency, then fit. */
 export function explainRecommendation(
   catalog: Catalog,
   scored: ScoredRecipe,
@@ -139,6 +143,7 @@ export function explainRecommendation(
       return name + ' is past its date.';
     }
   }
+  if (scored.cook) return cookRecencyLabel(scored.cook.daysSince);
   if (scored.missing === 0) return 'You already have everything.';
   if (scored.missing === 1) return 'Just one ingredient short.';
   return 'Closest match \u2014 ' + scored.missing + ' short.';
@@ -168,7 +173,14 @@ export function recommend(
         scored.missing === 0
           ? expiryWeightFor(recipe, totals, state.stockLots, staples, now)
           : noExpirySignal();
-      scored.rank = scored.score * lengthMultiplier(scored.total) * scored.expiry.multiplier;
+      // Repetition is a nudge, not a filter: a recent repeat still ranks if
+      // it is the only real option, but a close alternative can overtake it.
+      scored.cook = recentCookSignal(state.cookHistory ?? [], recipe.id, now) ?? undefined;
+      scored.rank =
+        scored.score *
+        lengthMultiplier(scored.total) *
+        scored.expiry.multiplier *
+        (scored.cook?.multiplier ?? 1);
       scored.explanation = explainRecommendation(catalog, scored, now);
       return scored;
     })

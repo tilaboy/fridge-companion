@@ -8,6 +8,7 @@ import { addLot } from './lots';
 import { clonePreferences, createPreferences } from './preferences';
 import type {
   Category,
+  CookEvent,
   Ingredient,
   KitchenState,
   Preferences,
@@ -47,15 +48,25 @@ function cloneRecipe(recipe: Recipe): Recipe {
   return copy;
 }
 
+function cloneCookEvent(event: CookEvent): CookEvent {
+  return {
+    id: event.id,
+    recipeId: event.recipeId,
+    cookedAt: event.cookedAt,
+    servings: event.servings,
+  };
+}
+
 export function createState(): KitchenState {
   return {
-    schemaVersion: 6,
+    schemaVersion: 7,
     categories: [],
     preferences: createPreferences(),
     customIngredients: [],
     customRecipes: [],
     stockLots: [],
     shoppingList: [],
+    cookHistory: [],
     stapleOverrides: {},
   };
 }
@@ -83,6 +94,8 @@ export function cloneState(state: KitchenState): KitchenState {
         fromRecipeId: item.fromRecipeId ?? null,
       }),
     ),
+    // Defensive `?? []`: hand-built or pre-history states still clone.
+    cookHistory: (state.cookHistory ?? []).map(cloneCookEvent),
     // Defensive `?? {}`: hand-built or pre-override states still clone.
     stapleOverrides: Object.assign({}, state.stapleOverrides ?? {}),
   };
@@ -114,7 +127,8 @@ export function isEmptyKitchen(state: KitchenState): boolean {
   return (
     state.categories.length === 0 &&
     state.stockLots.length === 0 &&
-    state.shoppingList.length === 0
+    state.shoppingList.length === 0 &&
+    (state.cookHistory ?? []).length === 0
   );
 }
 

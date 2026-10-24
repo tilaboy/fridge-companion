@@ -11,6 +11,7 @@ import type { Catalog } from './catalog';
 import { getIngredient, getRecipe } from './catalog';
 import { isValidAmount } from './amount';
 import { confirmCategories, ensureCategories } from './categories';
+import { sanitizeCookHistory } from './cookHistory';
 import { sanitizeCustomIngredients, sanitizeCustomRecipes } from './custom';
 import { normalizeExpiry } from './lots';
 import { sanitizePreferences } from './preferences';
@@ -27,7 +28,7 @@ import type {
 } from './types';
 
 export const APP_ID = 'fridge-companion';
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -208,6 +209,11 @@ export function sanitizeState(
       });
   }
 
+  fresh.cookHistory = sanitizeCookHistory(mergedCatalog, record.cookHistory, {
+    knownOnly,
+    now,
+  });
+
   return fresh;
 }
 
@@ -285,7 +291,7 @@ export function parseImportPayload(catalog: Catalog, text: unknown): ImportResul
   if (isEmptyKitchen(clean)) {
     return {
       ok: false,
-      error: 'That file has no stock, categories, or shopping list to import.',
+      error: 'That file has no kitchen data to import.',
     };
   }
   return {

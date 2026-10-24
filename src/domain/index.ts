@@ -7,6 +7,7 @@ export * from './amount';
 export * from './units';
 export * from './lots';
 export * from './history';
+export * from './cookHistory';
 export * from './staples';
 export * from './preferences';
 export * from './servings';

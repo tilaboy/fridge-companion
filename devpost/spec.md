@@ -78,7 +78,7 @@ Each category is one bubble around the fridge. One opens at a time — the other
 PRD ref: `prd.md > Setting up your kitchen (first use)`, `prd.md > Look and Feel`.
 
 ### The store (state + browser storage)
-The single source of truth: `{ categories, stock, shoppingList }`. Loaded once on start; rewritten after every change. One `localStorage` key (versioned, e.g. `fdc-state-v1`).
+The single source of truth: `{ categories, stockLots, shoppingList, preferences, customIngredients, customRecipes, cookHistory, stapleOverrides }`. Loaded once on start; rewritten after every change. One `localStorage` key, versioned (currently schema 7).
 PRD ref: `prd.md > States and Boundaries` (persistence).
 
 ### Amount prompt
@@ -87,6 +87,8 @@ PRD ref: `prd.md > Adding ingredients to stock`.
 
 ### Recommendation engine
 Scores every built-in recipe: **score = (ingredients you have in sufficient amount) ÷ (total ingredients)**, then ranks by **score × (1 + 0.1 × tracked ingredients)** — the learner's length bias — tie-broken by fewest missing, then by id for a stable order. The multiplier means a three-ingredient recipe carries ×1.3 and a five-ingredient one ×1.5. Amount-level check: needing 200 g with 100 g in stock counts as missing. **Staples are excluded from both sides of the score** — they are assumed on hand, so a recipe calling for salt is neither rewarded nor penalised for it. The displayed fit line stays the honest ratio; only the order carries the bias. Returns the top 2–3, or an empty result that triggers the empty state.
+
+Freshness and repetition are ranking weights, never filters. A complete recipe that can use up soon-expiring stock gets ×1.2 (expired stock ×0.8) and the card says which item to use first. A recipe cooked in the last two weeks is de-prioritized — ×0.5 within two days, ×0.8 within a week, ×0.95 within a fortnight — so a close alternative can win. A recent repeat is never hidden; its card says when it was last cooked, after any expiry reason.
 PRD ref: `prd.md > Getting recommendations`.
 
 ### Recipe card view
@@ -94,7 +96,7 @@ A recommendation card brought to center: dish emoji, the have/missing ingredient
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Commit actions
-**"Cook this"** deducts the recipe's ingredients at the chosen servings from stock — only what the user actually has, and never a staple — and floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's scaled quantities) to the shopping-list card; staples are never sent. The shopping button appears only when the recipe actually has missing ingredients — a recipe the kitchen already covers shows **"Cook this"** alone, because there is nothing to shop for. Both rewrite the store; committing plays the combining animation.
+**"Cook this"** deducts the recipe's ingredients at the chosen servings from stock — only what the user actually has, and never a staple — and records a cook event (`recipeId`, timestamp, chosen servings) for repetition avoidance; undo restores the prior history with the rest of the kitchen. It floats the amounts it removes off the fridge (see *"Out of the fridge" float*). **"Generate the shopping list"** sends the missing ingredients (with the recipe's scaled quantities) to the shopping-list card; staples are never sent. The shopping button appears only when the recipe actually has missing ingredients — a recipe the kitchen already covers shows **"Cook this"** alone, because there is nothing to shop for. Both rewrite the store; committing plays the combining animation.
 PRD ref: `prd.md > Cooking from a recipe`.
 
 ### Shopping list card
@@ -118,13 +120,17 @@ PRD ref: `prd.md > Setting up your kitchen (first use)`.
 User data (lives in browser storage, one versioned key):
 
 - `categories`: `[{ id, name }]` — the user's storage categories.
-- `stock`: `{ [ingredientId]: amount }` — whole numbers only; amount 0 means "not in stock" and the ingredient drops off the fridge display. Staples never appear here.
+- `stockLots`: `[{ id, ingredientId, amount, expiresAt, addedAt }]` — batches, so expiry and arrival order are real; totals are derived. Staples never appear here.
 - `shoppingList`: `[{ ingredientId, amount, fromRecipeId }]` — missing ingredients collected from recipe commits, removed when checked off. Staples never appear here either.
+- `preferences`: `{ diet, allergens, maxTimeMinutes, meal }` — hard filters, never ranking penalties.
+- `customIngredients`, `customRecipes` — the kitchen's own definitions, sanitized and de-duplicated.
+- `cookHistory`: `[{ id, recipeId, cookedAt, servings }]` — successful cooks, newest last and capped at 50; used only to de-prioritize repetition.
+- `stapleOverrides`: `{ [ingredientId]: boolean }` — per-kitchen staple choices layered over the tray defaults.
 
 Built-in data (ships in code, never written at runtime):
 
 - `ingredients`: `[{ id, name, emoji, categoryId, unit, staple? }]`
-- `recipes`: `[{ id, name, dishEmoji, servings, ingredients: [{ ingredientId, amount }], steps: [string] }]`
+- `recipes`: `[{ id, name, dishEmoji, servings, timeMinutes, mealTypes, ingredients: [{ ingredientId, amount }], steps: [string] }]`
 
 ### Staples
 
